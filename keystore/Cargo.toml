@@ -1,0 +1,14 @@
+[package]
+name = "owlchat-keystore"
+version = "0.1.0"
+authors = ["Shady Khalifa <shekohex@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+aes = "0.5"
+block-modes = "0.6"
+bip39 = "1.0.0-rc1"
+x25519-dalek = "1.1"
+thiserror = "1.0"
+rand = { version = "0.7", default-features = false, features = ["getrandom"] }
+zeroize = "1.1"

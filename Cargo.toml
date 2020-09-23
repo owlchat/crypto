@@ -1,0 +1,10 @@
+[workspace]
+members = [
+  "keystore",
+  # "keystore-ffi",
+]
+
+[profile.release]
+lto = true
+panic = 'unwind'
+codegen-units = 1
