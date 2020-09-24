@@ -60,7 +60,7 @@ jobs:
           args: --all -- --nocapture
 
       - name: Run FFI Tests
-        run: target/debug/full
+        run: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:target/debug/ target/debug/full
 
       - name: Valgrind Memory Checks
-        run: valgrind --error-exitcode=1 --leak-check=full --track-origins=yes target/debug/full
+        run: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:target/debug/ valgrind --error-exitcode=1 --leak-check=full --track-origins=yes target/debug/full
