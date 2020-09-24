@@ -1,21 +1,18 @@
-use std::{env, process::Command};
+use std::{path::PathBuf, process::Command};
 
 fn build_full() {
-    let cwd = env::current_dir().unwrap();
-    let workspace = cwd.parent().unwrap().to_path_buf();
     let mut cmd = Command::new("clang");
-    let out = workspace.join("target").join("debug");
-    env::set_current_dir(out.as_path()).unwrap();
+    let out = PathBuf::from("../target/debug");
     #[cfg(not(windows))]
     let lib = format!("{}", out.join("keystore.so").display()); // only linux for now
     #[cfg(windows)]
     let lib = format!("-l{}", out.join("keystore.dll").display());
     #[cfg(windows)]
-    let exe = "full.exe";
+    let exe = out.join("full.exe");
     #[cfg(not(windows))]
-    let exe = "full";
-    let input = format!("{}", cwd.join("tests/full.c").display());
-    let output = format!("-o{}", exe);
+    let exe = out.join("full");
+    let input = "./tests/full.c".to_string();
+    let output = format!("-o{}", exe.display());
     cmd.args(&[&output, &lib, &input]);
     assert!(cmd.status().unwrap().success());
 }
