@@ -8,13 +8,12 @@ fn build_full(out_dir_path: PathBuf) {
     #[cfg(windows)]
     let lib = "keystore.dll";
     let workspace = cwd.parent().unwrap().to_path_buf();
-    println!("cwd: {}", cwd.display());
-    println!("workspace: {}", workspace.display());
-    cmd.args(&["-o", &out_dir_path.join("full").to_string_lossy()])
-        .arg(&format!("-l{}", lib))
-        .arg(&format!("-L{}", workspace.join("target/debug").display()))
-        .arg(&*cwd.join("tests/full.c").to_string_lossy());
-    println!("Debug dir: {}", workspace.join("target/debug").display());
+    let lib = format!("-l{}", lib);
+    let lib_dir = format!("-L{}", workspace.join("target/debug").display());
+    let input = format!("{}", cwd.join("tests/full.c").display());
+    let output = format!("-o {}", out_dir_path.join("full").display());
+    dbg!(&[&input, &lib, &lib_dir, &output]);
+    cmd.args(&[&input, &lib, &lib_dir, &output]);
     assert!(cmd.status().unwrap().success());
 }
 #[test]
