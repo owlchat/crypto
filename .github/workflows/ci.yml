@@ -1,0 +1,51 @@
+on: [push, pull_request]
+
+name: CI
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: ${{ runner.temp }}/llvm/10.0
+          key: cached-llvm-10.0
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: '10.0'
+          directory: ${{ runner.temp }}/llvm/10.0
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        id: rust_toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Install valgrind
+        run: sudo apt install -y valgrind
+
+      - name: Cache Cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-${{ steps.rust_toolchain.outputs.rustc_hash }}
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test --all

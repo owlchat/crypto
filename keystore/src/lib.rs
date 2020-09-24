@@ -1,17 +1,17 @@
 use std::convert::TryFrom;
 
-use aes::Aes256;
+use aes_gcm_siv::aead::{AeadInPlace, Buffer, NewAead};
+use aes_gcm_siv::Aes256GcmSiv;
+
 use bip39::Mnemonic;
-use block_modes::{block_padding::Pkcs7, BlockMode, Cbc};
 use rand::{rngs::OsRng, Rng};
 use x25519_dalek::{PublicKey, StaticSecret as SecretKey};
 use zeroize::Zeroize;
 
 mod errors;
 pub use errors::KeyStoreError;
-
-// Create an alias for convenience
-type Aes256Cbc = Cbc<Aes256, Pkcs7>;
+mod buffer;
+pub use buffer::SharedBuffer;
 
 /// A Simple KeyStore that holds Keypair ([`PublicKey`], [`SecretKey`]).
 /// Also it holds the `Seed` used to generate the [`SecretKey`]
@@ -111,36 +111,47 @@ impl KeyStore {
         shared_secret.to_bytes()
     }
 
-    pub fn encrypt(&self, data: Vec<u8>) -> Result<Vec<u8>, KeyStoreError> {
+    pub fn encrypt(&self, data: &mut SharedBuffer) -> Result<(), KeyStoreError> {
         let mut sk = self.sk.to_bytes();
-        let encrypted = self.encrypt_with(sk, data)?;
+        self.encrypt_with(sk, data)?;
         sk.zeroize();
-        Ok(encrypted)
+        Ok(())
     }
 
-    pub fn decrypt(&self, data: Vec<u8>) -> Result<Vec<u8>, KeyStoreError> {
+    pub fn decrypt(&self, data: &mut SharedBuffer) -> Result<(), KeyStoreError> {
         let mut sk = self.sk.to_bytes();
-        let decrypted = self.decrypt_with(sk, data)?;
+        self.decrypt_with(sk, data)?;
         sk.zeroize();
-        Ok(decrypted)
+        Ok(())
     }
 
-    pub fn encrypt_with(&self, mut sk: [u8; 32], data: Vec<u8>) -> Result<Vec<u8>, KeyStoreError> {
+    pub fn encrypt_with(
+        &self,
+        mut sk: [u8; 32],
+        data: &mut SharedBuffer,
+    ) -> Result<(), KeyStoreError> {
         let mut rnd = OsRng::default();
-        let mut iv = [0u8; 16];
-        rnd.fill(&mut iv);
-        let mut encrypted = aes_encrypt(&sk, &iv, &data)?;
-        encrypted.extend_from_slice(&iv);
+        let mut nonce = [0u8; 12];
+        rnd.fill(&mut nonce);
+        aes_encrypt(&sk, &nonce, data)?;
+        data.extend_from_slice(&nonce)?;
         sk.zeroize();
-        Ok(encrypted)
+        Ok(())
     }
 
-    pub fn decrypt_with(&self, mut sk: [u8; 32], data: Vec<u8>) -> Result<Vec<u8>, KeyStoreError> {
-        let len = data.len();
-        let (data, iv) = data.split_at(len - 16);
-        let decrypted = aes_decrypt(&sk, iv, data)?;
+    pub fn decrypt_with(
+        &self,
+        mut sk: [u8; 32],
+        data: &mut SharedBuffer,
+    ) -> Result<(), KeyStoreError> {
+        let mut nonce = [0u8; 12];
+        // extract the nonce
+        for b in nonce.iter_mut().rev() {
+            *b = data.pop().expect("nonce should be here");
+        }
+        aes_decrypt(&sk, &nonce, data)?;
         sk.zeroize();
-        Ok(decrypted)
+        Ok(())
     }
 }
 
@@ -171,14 +182,18 @@ impl TryFrom<String> for KeyStore {
     }
 }
 
-fn aes_decrypt(key: &[u8], iv: &[u8], input: &[u8]) -> Result<Vec<u8>, KeyStoreError> {
-    let cipher = Aes256Cbc::new_var(&key, &iv)?;
-    cipher.decrypt_vec(input).map_err(Into::into)
+fn aes_decrypt(key: &[u8], nonce: &[u8], data: &mut SharedBuffer) -> Result<(), KeyStoreError> {
+    let cipher = Aes256GcmSiv::new(key.into());
+    cipher
+        .decrypt_in_place(nonce.into(), b"", data)
+        .map_err(Into::into)
 }
 
-fn aes_encrypt(key: &[u8], iv: &[u8], input: &[u8]) -> Result<Vec<u8>, KeyStoreError> {
-    let cipher = Aes256Cbc::new_var(&key, &iv)?;
-    Ok(cipher.encrypt_vec(input))
+fn aes_encrypt(key: &[u8], nonce: &[u8], data: &mut SharedBuffer) -> Result<(), KeyStoreError> {
+    let cipher = Aes256GcmSiv::new(key.into());
+    cipher
+        .encrypt_in_place(nonce.into(), b"", data)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -187,22 +202,27 @@ mod tests {
     #[test]
     fn it_works() {
         let ks = KeyStore::new();
-        let data = b"Owlchat".to_vec();
-        let encrypted = ks.encrypt(data.clone()).expect("ecnrypt");
-        let decrypted = ks.decrypt(encrypted).expect("decrypt");
-        assert_eq!(decrypted, data);
+        let mut data: SharedBuffer = Vec::with_capacity((8 + 12) * 4).into();
+        data.extend_from_slice(b"Owlchat").unwrap();
+        ks.encrypt(&mut data).expect("ecnrypt");
+        let original = b"Owlchat".to_vec().into();
+        assert_ne!(data, original);
+        ks.decrypt(&mut data).expect("decrypt");
+        assert_eq!(data, original);
     }
 
     #[test]
     fn keystore_init() {
         let ks = KeyStore::new();
-        let data = b"Owlchat".to_vec();
-        let encrypted = ks.encrypt(data.clone()).unwrap();
+        let mut data: SharedBuffer = Vec::with_capacity((8 + 12) * 4).into();
+        data.extend_from_slice(b"Owlchat").unwrap();
+        let original = b"Owlchat".to_vec().into();
+        ks.encrypt(&mut data).unwrap();
         let sk = ks.secret_key();
         drop(ks);
         let ks = KeyStore::init(sk);
-        let decrypted = ks.decrypt(encrypted).unwrap();
-        assert_eq!(decrypted, data);
+        ks.decrypt(&mut data).unwrap();
+        assert_eq!(data, original);
     }
     #[test]
     fn same_shared_secret() {
@@ -222,15 +242,19 @@ mod tests {
         let alice_sk = alice_ks.dh(bob_ks.public_key());
         let bob_sk = bob_ks.dh(alice_ks.public_key());
 
-        let m0 = b"Knock, knock".to_vec();
-        let alice_to_bob = alice_ks.encrypt_with(alice_sk, m0.clone()).unwrap();
-        let message = bob_ks.decrypt_with(bob_sk, alice_to_bob).unwrap();
-        assert_eq!(message, m0);
+        let mut m0: SharedBuffer = Vec::with_capacity((12 + 12) * 4).into();
+        m0.extend_from_slice(b"Knock, knock").unwrap();
+        let original: SharedBuffer = b"Knock, knock".to_vec().into();
+        alice_ks.encrypt_with(alice_sk, &mut m0).unwrap();
+        bob_ks.decrypt_with(bob_sk, &mut m0).unwrap();
+        assert_eq!(original, m0);
 
-        let m1 = b"Who's there?".to_vec();
-        let bob_to_alice = bob_ks.encrypt_with(bob_sk, m1.clone()).unwrap();
-        let message = alice_ks.decrypt_with(alice_sk, bob_to_alice).unwrap();
-        assert_eq!(message, m1);
+        let mut m1: SharedBuffer = Vec::with_capacity((12 + 12) * 4).into();
+        m1.extend_from_slice(b"Who's there?").unwrap();
+        let original: SharedBuffer = b"Who's there?".to_vec().into();
+        bob_ks.encrypt_with(bob_sk, &mut m1).unwrap();
+        alice_ks.decrypt_with(alice_sk, &mut m1).unwrap();
+        assert_eq!(original, m1);
     }
 
     #[test]
@@ -238,13 +262,14 @@ mod tests {
         let ks = KeyStore::new();
         let paper_key = ks.backup(None).unwrap();
         println!("Backup Paper Key: {}", paper_key);
-        let data = b"Owlchat".to_vec();
-        let encrypted = ks.encrypt(data.clone()).unwrap();
+        let mut data: SharedBuffer = Vec::with_capacity((8 + 12) * 4).into();
+        data.extend_from_slice(b"Owlchat").unwrap();
+        let original: SharedBuffer = b"Owlchat".to_vec().into();
+        ks.encrypt(&mut data).unwrap();
         drop(ks);
 
         let ks = KeyStore::restore(paper_key).unwrap();
-        let decrypted = ks.decrypt(encrypted).unwrap();
-
-        assert_eq!(decrypted, data);
+        ks.decrypt(&mut data).unwrap();
+        assert_eq!(original, data);
     }
 }

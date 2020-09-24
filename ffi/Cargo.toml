@@ -1,0 +1,21 @@
+[package]
+name = "owlchat-keystore-ffi"
+version = "0.1.0"
+authors = ["Shady Khalifa <shekohex@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "keystore"
+# this value will change depending on the target os
+# for iOS it would be `staticlib`
+# for android it would be `c-dylib`
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+keystore = { path = "../keystore", package = "owlchat-keystore" }
+
+[dev-dependencies]
+tempfile = "3.1"
+
+[build-dependencies]
+cbindgen = "0.14"
