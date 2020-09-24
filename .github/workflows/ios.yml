@@ -1,0 +1,72 @@
+on: [push, pull_request]
+
+name: iOS
+
+jobs:
+  ci:
+    name: Compile and Release
+    runs-on: macos-latest
+    steps:
+      - name: Cache LLVM and Clang
+        id: cache-llvm
+        uses: actions/cache@v2
+        with:
+          path: ${{ runner.temp }}/llvm/10.0
+          key: ${{ runner.os }}-cached-llvm-10.0
+
+      - name: Install LLVM and Clang
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: '10.0'
+          directory: ${{ runner.temp }}/llvm/10.0
+          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Rust Toolchain
+        id: rust_toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: rustfmt
+
+      - name: Cache Cargo
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            target
+          key: ${{ runner.os }}-cargo-${{ steps.rust_toolchain.outputs.rustc_hash }}
+
+      - name: Install Cargo Tools (cargo-make)
+        uses: actions-rs/cargo@v1
+        continue-on-error: true
+        with:
+          command: install
+          args: cargo-make
+
+      - name: Install iOS Targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Run cargo make ios (Release)
+        uses: actions-rs/cargo@v1
+        continue-on-error: false
+        with:
+          command: make
+          args: ios --profile release
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          prerelease: true
+          tag_name: latest
+          files: |
+            target/universal/release/libkeystore.a
+            ffi/binding.h
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
