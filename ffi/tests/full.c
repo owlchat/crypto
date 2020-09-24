@@ -1,4 +1,5 @@
 #include "full.h"
+#include <stdio.h>
 
 void test_create_keystore() {
   println("Creating KeyStore");
@@ -14,7 +15,7 @@ void test_encrypt_decrypt() {
   const uint8_t *msg = (uint8_t *)"Owlchat";
   const uintptr_t msg_len = sizeof(&msg) / sizeof(msg[0]);
   const uintptr_t total_len = msg_len + 12; // 12 for nonce
-  printf_s("Total Length: %d\n", total_len);
+  printf("Total Length: %llu\n", total_len);
 
   SharedBuffer *shared_buffer = shared_buffer_new(total_len * 4);
   shared_buffer_append(shared_buffer, msg, msg_len);

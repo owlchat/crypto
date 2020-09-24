@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-void println(const char *msg) { printf_s("%s\n", msg); }
+void println(const char *msg) { printf("%s\n", msg); }
 
 void print_fixed32_array(const Fixed32Array arr) {
   for (size_t i = 0; i < 32; i++) {
     uint8_t e = arr.data[i];
     printf("%x", e);
   }
-  printf_s("\n");
+  printf("\n");
 }
 
 void print_shared_buffer(const SharedBuffer *vec) {
@@ -18,7 +18,7 @@ void print_shared_buffer(const SharedBuffer *vec) {
     uint8_t e = vec->buf[i];
     printf("%s", &e);
   }
-  printf_s("\n");
+  printf("\n");
 }
 
 void hex_dump_shared_buffer(const SharedBuffer *vec) {
@@ -27,7 +27,7 @@ void hex_dump_shared_buffer(const SharedBuffer *vec) {
     uint8_t e = vec->buf[i];
     printf("%x", e);
   }
-  printf_s("\n");
+  printf("\n");
 }
 
 void assert_shared_buffer_eq(const SharedBuffer *a, const SharedBuffer *b) {
@@ -35,9 +35,9 @@ void assert_shared_buffer_eq(const SharedBuffer *a, const SharedBuffer *b) {
     println("assert faild len(a) != len(b)");
     exit(1);
   }
-  for (size_t i = 0; i < a->len; i++) {
+  for (uintptr_t i = 0; i < a->len; i++) {
     if (a->buf[i] != b->buf[i]) {
-      printf("a[%lld] != b[%lld]\n", i, i);
+      printf("a[%llu] != b[%llu]\n", i, i);
       exit(1);
     }
   }
