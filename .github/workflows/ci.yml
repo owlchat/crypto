@@ -50,8 +50,17 @@ jobs:
         with:
           command: build
 
+      - name: Build FFI Tests
+        run: clang -otarget/debug/full -lkeystore -Ltarget/debug ffi/tests/full.c
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --all -- --nocapture
+
+      - name: Run FFI Tests
+        run: target/debug/full
+
+      - name: Valgrind Memory Checks
+        run: valgrind --error-exitcode=1 --leak-check=full --track-origins=yes target/debug/full
