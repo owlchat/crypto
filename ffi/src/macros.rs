@@ -23,23 +23,39 @@ macro_rules! cstr {
         if $ptr.is_null() {
             return $error;
         }
-        $crate::result!(::std::ffi::CStr::from_ptr($ptr).to_str(), $error)
+        $crate::unwrap_or_null!(::std::ffi::CStr::from_ptr($ptr).to_str(), $error)
     }};
 }
 
-/// A simple macro to match on a result and if there is an error it returns null or your custom error
+/// A simple macro to match on a result
 #[doc(hidden)]
 #[macro_export]
 macro_rules! result {
     ($result:expr) => {
-        $crate::result!($result, std::ptr::null());
-    };
-    ($result:expr, $error:expr) => {
         match $result {
             Ok(value) => value,
-            Err(_) => {
-                return $error;
+            Err(e) => {
+                return match e {
+                    keystore::KeyStoreError::AeadError(_) => crate::OperationStatus::AeadError,
+                    keystore::KeyStoreError::Bip39Error(_) => crate::OperationStatus::Bip39Error,
+                    keystore::KeyStoreError::EmptySeed => crate::OperationStatus::KeyStoreHasNoSeed,
+                }
             }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! unwrap_or_null {
+    ($result:expr) => {
+        $crate::unwrap_or_null!($result, std::ptr::null());
+    };
+
+    ($result:expr, $err:expr) => {
+        match $result {
+            Ok(value) => value,
+            Err(_) => return $err,
         }
     };
 }
@@ -49,7 +65,7 @@ macro_rules! result {
 #[macro_export]
 macro_rules! keystore {
     ($ptr:expr) => {
-        $crate::keystore!($ptr, std::ptr::null())
+        $crate::keystore!($ptr, crate::OperationStatus::KeyStoreNotInialized)
     };
 
     ($ptr:expr, $error:expr) => {{
