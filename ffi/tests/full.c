@@ -24,6 +24,7 @@ void test_encrypt_decrypt() {
   print_shared_buffer(shared_buffer);
 
   Fixed32Array *secret_key = malloc(sizeof(Fixed32Array));
+  secret_key->data = NULL;
   keystore_encrypt(ks, shared_buffer, *secret_key);
   hex_dump_shared_buffer(shared_buffer);
 
@@ -36,6 +37,8 @@ void test_encrypt_decrypt() {
   assert_shared_buffer_eq(shared_buffer, shared_buffer2);
 
   shared_buffer_free(shared_buffer);
+  shared_buffer_free(shared_buffer2);
+  free(secret_key);
   println("Free KeyStore");
   keystore_free(ks);
 }
