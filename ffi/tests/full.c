@@ -1,6 +1,8 @@
 #include "full.h"
 #include <stdio.h>
 
+#pragma clang diagnostic ignored "-Wformat"
+
 void test_create_keystore() {
   println("Creating KeyStore");
   RawKeyStore ks = keystore_new();
