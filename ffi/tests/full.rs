@@ -14,10 +14,10 @@ fn build_full() {
     let exe = "full.exe";
     #[cfg(not(windows))]
     let exe = "full";
-    let lib = format!("-l{}", lib);
+    let lib = format!("-l{}", out.join(lib).display());
     let input = format!("{}", cwd.join("tests/full.c").display());
     let output = format!("-o{}", exe);
-    cmd.args(&[&input, &lib, &output]);
+    cmd.args(&[&lib, &input, &output]);
     assert!(cmd.status().unwrap().success());
 }
 #[test]
@@ -34,7 +34,12 @@ fn test_ffi() {
 #[cfg(unix)]
 fn memory_test() {
     let mut cmd = Command::new("valgrind");
-    cmd.args(&["--error-exitcode=1", "--leak-check=full", "full"]);
+    cmd.args(&[
+        "--error-exitcode=1",
+        "--leak-check=full",
+        "--track-origins=yes",
+        "./full",
+    ]);
     let out = cmd.output().unwrap();
     let output = String::from_utf8_lossy(&out.stdout);
     println!("{}", output);
