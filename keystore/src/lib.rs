@@ -79,7 +79,7 @@ impl KeyStore {
     /// if this a newly created `KeyStroe` you could pass `None` since it will use the current seed.
     /// it will return Error if both the current seed and the provided one is both `None`.
     pub fn backup(&self, seed: Option<[u8; 32]>) -> Result<String, KeyStoreError> {
-        let seed = self.seed.or(seed).ok_or_else(|| KeyStoreError::EmptySeed)?;
+        let seed = self.seed.or(seed).ok_or(KeyStoreError::EmptySeed)?;
         let mnemonic = Mnemonic::from_entropy(&seed)?;
         Ok(mnemonic.to_string())
     }
