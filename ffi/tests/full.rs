@@ -4,6 +4,8 @@ fn build_full() {
     let cwd = env::current_dir().unwrap();
     let workspace = cwd.parent().unwrap().to_path_buf();
     let mut cmd = Command::new("clang");
+    let out = workspace.join("target").join("debug");
+    env::set_current_dir(out.as_path()).unwrap();
     #[cfg(not(windows))]
     let lib = "keystore";
     #[cfg(windows)]
@@ -13,12 +15,9 @@ fn build_full() {
     #[cfg(not(windows))]
     let exe = "full";
     let lib = format!("-l{}", lib);
-    let lib_dir = format!("-L{}", workspace.join("target/debug").display());
     let input = format!("{}", cwd.join("tests/full.c").display());
-    let out = workspace.join("target").join("debug");
-    env::set_current_dir(out.as_path()).unwrap();
     let output = format!("-o{}", exe);
-    cmd.args(&[&input, &lib, &lib_dir, &output]);
+    cmd.args(&[&input, &lib, &output]);
     assert!(cmd.status().unwrap().success());
 }
 #[test]
