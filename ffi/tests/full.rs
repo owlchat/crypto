@@ -11,8 +11,8 @@ fn build_full(out_dir_path: PathBuf) {
     println!("cwd: {}", cwd.display());
     println!("workspace: {}", workspace.display());
     cmd.args(&["-o", &out_dir_path.join("full").to_string_lossy()])
-        .args(&["-l", lib])
-        .args(&["-L", &workspace.join("target/debug").to_string_lossy()])
+        .arg(&format!("-l{}", lib))
+        .arg(&format!("-L{}", workspace.join("target/debug").display()))
         .arg(&*cwd.join("tests/full.c").to_string_lossy());
     println!("Debug dir: {}", workspace.join("target/debug").display());
     assert!(cmd.status().unwrap().success());
