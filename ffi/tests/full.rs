@@ -7,17 +7,16 @@ fn build_full() {
     let out = workspace.join("target").join("debug");
     env::set_current_dir(out.as_path()).unwrap();
     #[cfg(not(windows))]
-    let lib = "keystore";
+    let lib = format!("{}", out.join("keystore.so").display()); // only linux for now
     #[cfg(windows)]
-    let lib = "keystore.dll";
+    let lib = format!("-l{}", out.join("keystore.dll").display());
     #[cfg(windows)]
     let exe = "full.exe";
     #[cfg(not(windows))]
     let exe = "full";
-    let lib = format!("-l{}", out.join(lib).display());
     let input = format!("{}", cwd.join("tests/full.c").display());
     let output = format!("-o{}", exe);
-    cmd.args(&[&lib, &input, &output]);
+    cmd.args(&[&output, &lib, &input]);
     assert!(cmd.status().unwrap().success());
 }
 #[test]
