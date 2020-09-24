@@ -90,7 +90,9 @@ jobs:
           args: android-arm --profile release
 
       - name: Prepare Release
-      - run: mv target/aarch64-linux-android/release/libkeystore.so target/release/libkeystore-aarch64-linux-android.so && mv target/x86_64-linux-android/release/libkeystore.so target/release/libkeystore-x86_64-linux-android.so
+        run: |
+          mv target/aarch64-linux-android/release/libkeystore.so target/release/libkeystore-aarch64-linux-android.so
+          mv target/x86_64-linux-android/release/libkeystore.so target/release/libkeystore-x86_64-linux-android.so
 
       - name: Create release
         uses: softprops/action-gh-release@v1

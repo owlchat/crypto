@@ -61,7 +61,9 @@ jobs:
           args: ios --profile release
 
       - name: Prepare Release
-      - run: mv target/universal/release/libkeystore.a target/release/libkeystore-universal-apple-ios.a && mv ffi/binding.h target/release/keystore.h
+        run: |
+          mv target/universal/release/libkeystore.a target/release/libkeystore-universal-apple-ios.a
+          mv ffi/binding.h target/release/keystore.h
 
       - name: Create release
         uses: softprops/action-gh-release@v1
