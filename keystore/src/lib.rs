@@ -9,6 +9,7 @@ use x25519_dalek::{PublicKey, StaticSecret as SecretKey};
 use zeroize::Zeroize;
 
 mod errors;
+pub mod util;
 pub use errors::KeyStoreError;
 mod buffer;
 pub use buffer::SharedBuffer;

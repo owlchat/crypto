@@ -1,5 +1,5 @@
 use core::slice;
-use std::{ffi::c_void, ffi::CString, mem::ManuallyDrop, os::raw::c_char, ptr};
+use std::{ffi::c_void, ffi::CString, mem::ManuallyDrop, os::raw::c_char, path::PathBuf, ptr};
 
 use keystore::KeyStore;
 pub use keystore::SharedBuffer;
@@ -43,6 +43,7 @@ pub enum OperationStatus {
     AeadError,
     Bip39Error,
     Utf8Error,
+    IOError,
 }
 /// Create a new [`KeyStore`].
 ///
@@ -243,6 +244,31 @@ pub unsafe extern "C" fn keystore_decrypt(
         OperationStatus::OK
     } else {
         OperationStatus::BadSharedBufferProvided
+    }
+}
+
+/// Calculate SHA256 Hash of the provided file path.
+///
+/// ### Safety
+/// this function assumes that:
+/// - `file_path` is not null pointer.
+/// - `out` is not null pointer.
+#[no_mangle]
+pub unsafe extern "C" fn keystore_sha256_hash(
+    file_path: *const c_char,
+    out: RawMutFixed32Array,
+) -> OperationStatus {
+    let path = cstr!(file_path, OperationStatus::Utf8Error);
+    if out.is_null() {
+        return OperationStatus::BadFixed32ArrayProvided;
+    }
+    let path = PathBuf::from(path);
+    match keystore::util::sh256_hash(path) {
+        Ok(hash) => {
+            (*out).write(hash);
+            OperationStatus::OK
+        }
+        _ => OperationStatus::IOError,
     }
 }
 

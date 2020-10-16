@@ -13,6 +13,7 @@ typedef enum {
   AeadError,
   Bip39Error,
   Utf8Error,
+  IOError,
 } OperationStatus;
 
 typedef const void *RawKeyStore;
@@ -122,6 +123,14 @@ OperationStatus keystore_secret_key(RawKeyStore ks, RawMutFixed32Array out);
 // this function assumes that:
 // - `ks` is not null pointer to the `KeyStore`.
 OperationStatus keystore_seed(RawKeyStore ks, RawMutFixed32Array out);
+
+// Calculate SHA256 Hash of the provided file path.
+//
+// ### Safety
+// this function assumes that:
+// - `file_path` is not null pointer.
+// - `out` is not null pointer.
+OperationStatus keystore_sha256_hash(const char *file_path, RawMutFixed32Array out);
 
 // Free (Drop) a string value allocated by Rust.
 // ### Safety
