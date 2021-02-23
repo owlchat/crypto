@@ -5,10 +5,12 @@ authors = ["Shady Khalifa <shekohex@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+rand = { version = "0.8", default-features = false, features = ["getrandom"] }
 aes-gcm-siv = { version = "0.8", features = ["std"] }
-bip39 = "1.0.0-rc1"
+tiny-bip39 = { version = "0.8", default-features = false }
+curve25519-dalek = "3.0"
 x25519-dalek = "1.1"
+subtle = "2.4"
 thiserror = "1.0"
-rand = { version = "0.7", default-features = false, features = ["getrandom"] }
 zeroize = "1.1"
 sha2 = "0.9"

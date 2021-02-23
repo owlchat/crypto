@@ -150,11 +150,41 @@ void test_backup_and_restore() {
   println("test backup_and_restore ...ok");
 }
 
+void test_signature_create_verify() {
+  println("test signature_create_verify ...");
+  OperationStatus status = Unknwon;
+  RawKeyStore alice_ks = keystore_new();
+
+  SharedBuffer *msg = shared_buffer_new(OWL_CHAT_LEN);
+  shared_buffer_append(msg, OWL_CHAT, OWL_CHAT_LEN);
+
+  Fixed64Array *sig = fixed64_array_empty();
+  status = keystore_calculate_signature(alice_ks, msg, sig);
+  assert_ok(status, "alice_create_signature");
+
+  Fixed32Array *alice_pk = fixed32_array_empty();
+  status = keystore_public_key(alice_ks, alice_pk);
+  assert_ok(status, "alice_public_key");
+
+  status = keystore_verify_signature(alice_pk, msg, sig);
+  assert_ok(status, "alice_verify_signature");
+
+  fixed32_array_free(alice_pk);
+  fixed64_array_free(sig);
+
+  shared_buffer_free(msg);
+
+  keystore_free(alice_ks);
+
+  println("test signature_create_verify ...ok");
+}
+
 int main() {
   test_create_keystore();
   test_encrypt_decrypt();
   test_keystore_init();
   test_same_shared_secret();
   test_backup_and_restore();
+  test_signature_create_verify();
   return 0;
 }

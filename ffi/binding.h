@@ -4,16 +4,18 @@
 #include <stdlib.h>
 
 typedef enum {
-  OK,
+  Ok,
   Unknwon,
   KeyStoreNotInialized,
   BadFixed32ArrayProvided,
+  BadFixed64ArrayProvided,
   BadSharedBufferProvided,
   KeyStoreHasNoSeed,
   AeadError,
   Bip39Error,
   Utf8Error,
-  IOError,
+  IoError,
+  InvalidSignature,
 } OperationStatus;
 
 typedef const void *RawKeyStore;
@@ -32,7 +34,15 @@ typedef struct {
 
 typedef SharedBuffer *RawSharedBuffer;
 
+typedef struct {
+  uint8_t *buf;
+} Fixed64Array;
+
+typedef Fixed64Array *RawMutFixed64Array;
+
 typedef Fixed32Array *RawMutFixed32Array;
+
+typedef const Fixed64Array *RawFixed64Array;
 
 // Create a [`Mnemonic`] Backup from the provided seed (or the keystore seed if exist).
 //
@@ -45,6 +55,16 @@ typedef Fixed32Array *RawMutFixed32Array;
 //
 // otherwise it will return null.
 const char *keystore_backup(RawKeyStore ks, RawFixed32Array seed);
+
+// Calculate the signature of the message using the given `KeyStore`.
+//
+// ### Safety
+// this function assumes that:
+// - `ks` is not null pointer to the `KeyStore`.
+// - `message` is not null pointer and valid bytes buffer.
+OperationStatus keystore_calculate_signature(RawKeyStore ks,
+                                             RawSharedBuffer message,
+                                             RawMutFixed64Array out);
 
 // Decrypt the Given data using `KeyStore` owned `SecretKey`
 //
@@ -136,3 +156,14 @@ OperationStatus keystore_sha256_hash(const char *file_path, RawMutFixed32Array o
 // ### Safety
 // this assumes that the given pointer is not null.
 void keystore_string_free(const char *ptr);
+
+// Verifies the signature of the message using the given `PublicKey`.
+//
+// ### Safety
+// this function assumes that:
+// - `thier_public` is not null pointer to the fixed size 32 bytes array.
+// - `message` is not null pointer and valid bytes buffer.
+// - `signature` is not null pointer to the fixed size 64 bytes array.
+OperationStatus keystore_verify_signature(RawFixed32Array thier_public,
+                                          RawSharedBuffer message,
+                                          RawFixed64Array signature);

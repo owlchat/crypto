@@ -10,6 +10,8 @@ type RawKeyStore = *const c_void;
 type RawMutFixed32Array = *mut Fixed32Array;
 type RawFixed32Array = *const Fixed32Array;
 type RawSharedBuffer = *mut SharedBuffer;
+type RawMutFixed64Array = *mut Fixed64Array;
+type RawFixed64Array = *const Fixed64Array;
 
 #[repr(C)]
 pub struct Fixed32Array {
@@ -23,9 +25,9 @@ impl Fixed32Array {
     }
 }
 
-impl<'a> Into<[u8; 32]> for &'a Fixed32Array {
-    fn into(self) -> [u8; 32] {
-        let slice = unsafe { slice::from_raw_parts(self.buf, 32) };
+impl<'a> From<&'a Fixed32Array> for [u8; 32] {
+    fn from(arr: &'a Fixed32Array) -> [u8; 32] {
+        let slice = unsafe { slice::from_raw_parts(arr.buf, 32) };
         let mut fixed_slice = [0u8; 32];
         fixed_slice.copy_from_slice(slice);
         fixed_slice
@@ -33,17 +35,40 @@ impl<'a> Into<[u8; 32]> for &'a Fixed32Array {
 }
 
 #[repr(C)]
+pub struct Fixed64Array {
+    buf: *mut u8,
+}
+
+impl Fixed64Array {
+    unsafe fn write(&mut self, data: [u8; 64]) {
+        let buf = slice::from_raw_parts_mut(self.buf, 64);
+        buf.copy_from_slice(&data);
+    }
+}
+
+impl<'a> From<&'a Fixed64Array> for [u8; 64] {
+    fn from(arr: &'a Fixed64Array) -> [u8; 64] {
+        let slice = unsafe { slice::from_raw_parts(arr.buf, 64) };
+        let mut fixed_slice = [0u8; 64];
+        fixed_slice.copy_from_slice(slice);
+        fixed_slice
+    }
+}
+
+#[repr(C)]
 pub enum OperationStatus {
-    OK,
+    Ok,
     Unknwon,
     KeyStoreNotInialized,
     BadFixed32ArrayProvided,
+    BadFixed64ArrayProvided,
     BadSharedBufferProvided,
     KeyStoreHasNoSeed,
     AeadError,
     Bip39Error,
     Utf8Error,
-    IOError,
+    IoError,
+    InvalidSignature,
 }
 /// Create a new [`KeyStore`].
 ///
@@ -88,7 +113,7 @@ pub unsafe extern "C" fn keystore_public_key(
     let pk = ks.public_key();
     if let Some(out) = out.as_mut() {
         out.write(pk);
-        OperationStatus::OK
+        OperationStatus::Ok
     } else {
         OperationStatus::BadFixed32ArrayProvided
     }
@@ -108,7 +133,7 @@ pub unsafe extern "C" fn keystore_secret_key(
     let sk = ks.secret_key();
     if let Some(out) = out.as_mut() {
         out.write(sk);
-        OperationStatus::OK
+        OperationStatus::Ok
     } else {
         OperationStatus::BadFixed32ArrayProvided
     }
@@ -129,7 +154,7 @@ pub unsafe extern "C" fn keystore_seed(
     match (seed, out.as_mut()) {
         (Some(seed), Some(out)) => {
             out.write(seed);
-            OperationStatus::OK
+            OperationStatus::Ok
         }
         (None, _) => OperationStatus::KeyStoreHasNoSeed,
         (Some(_), None) => OperationStatus::BadFixed32ArrayProvided,
@@ -154,7 +179,7 @@ pub unsafe extern "C" fn keystore_dh(
         (Some(pk), Some(out)) => {
             let shared_secret = ks.dh(pk.into());
             out.write(shared_secret);
-            OperationStatus::OK
+            OperationStatus::Ok
         }
         _ => OperationStatus::BadFixed32ArrayProvided,
     }
@@ -216,7 +241,7 @@ pub unsafe extern "C" fn keystore_encrypt(
         } else {
             result!(ks.encrypt(data));
         };
-        OperationStatus::OK
+        OperationStatus::Ok
     } else {
         OperationStatus::BadSharedBufferProvided
     }
@@ -241,9 +266,62 @@ pub unsafe extern "C" fn keystore_decrypt(
         } else {
             result!(ks.decrypt(data));
         };
-        OperationStatus::OK
+        OperationStatus::Ok
     } else {
         OperationStatus::BadSharedBufferProvided
+    }
+}
+
+/// Calculate the signature of the message using the given `KeyStore`.
+///
+/// ### Safety
+/// this function assumes that:
+/// - `ks` is not null pointer to the `KeyStore`.
+/// - `message` is not null pointer and valid bytes buffer.
+#[no_mangle]
+pub unsafe extern "C" fn keystore_calculate_signature(
+    ks: RawKeyStore,
+    message: RawSharedBuffer,
+    out: RawMutFixed64Array,
+) -> OperationStatus {
+    let ks = keystore!(ks);
+    match (message.as_ref(), out.as_mut()) {
+        (Some(msg), Some(out)) => {
+            let sig = ks.calculate_signature(msg.as_ref());
+            out.write(sig);
+            OperationStatus::Ok
+        }
+        (Some(_), None) => OperationStatus::BadFixed64ArrayProvided,
+        (None, Some(_)) => OperationStatus::BadSharedBufferProvided,
+        _ => OperationStatus::Unknwon,
+    }
+}
+
+/// Verifies the signature of the message using the given `PublicKey`.
+///
+/// ### Safety
+/// this function assumes that:
+/// - `thier_public` is not null pointer to the fixed size 32 bytes array.
+/// - `message` is not null pointer and valid bytes buffer.
+/// - `signature` is not null pointer to the fixed size 64 bytes array.
+#[no_mangle]
+pub unsafe extern "C" fn keystore_verify_signature(
+    thier_public: RawFixed32Array,
+    message: RawSharedBuffer,
+    signature: RawFixed64Array,
+) -> OperationStatus {
+    match (thier_public.as_ref(), message.as_ref(), signature.as_ref()) {
+        (Some(public), Some(msg), Some(sig)) => {
+            let ok = KeyStore::verify_signature(public.into(), msg.as_ref(), sig.into());
+            if ok {
+                OperationStatus::Ok
+            } else {
+                OperationStatus::InvalidSignature
+            }
+        }
+        (None, _, _) => OperationStatus::BadFixed32ArrayProvided,
+        (_, _, None) => OperationStatus::BadFixed64ArrayProvided,
+        (_, None, _) => OperationStatus::BadSharedBufferProvided,
     }
 }
 
@@ -266,9 +344,9 @@ pub unsafe extern "C" fn keystore_sha256_hash(
     match keystore::util::sh256_hash(path) {
         Ok(hash) => {
             (*out).write(hash);
-            OperationStatus::OK
+            OperationStatus::Ok
         }
-        _ => OperationStatus::IOError,
+        _ => OperationStatus::IoError,
     }
 }
 
