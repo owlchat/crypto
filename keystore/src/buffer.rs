@@ -1,6 +1,7 @@
-use aes_gcm_siv::aead::{self, Buffer};
 use core::slice;
 use std::ptr::{self, NonNull};
+
+use chacha20poly1305::aead::{self, Buffer};
 
 #[derive(Debug)]
 #[repr(C)]

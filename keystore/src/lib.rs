@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
-use aes_gcm_siv::aead::{AeadInPlace, Buffer, NewAead};
-use aes_gcm_siv::Aes256GcmSiv;
 use bip39::{Language, Mnemonic, MnemonicType};
+use chacha20poly1305::aead::{self, AeadInPlace, Buffer, NewAead};
+use chacha20poly1305::ChaCha20Poly1305;
 use curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
 use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::montgomery::MontgomeryPoint;
@@ -152,7 +152,7 @@ impl KeyStore {
         let mut rnd = OsRng::default();
         let mut nonce = [0u8; 12];
         rnd.fill(&mut nonce);
-        aes_encrypt(&sk, &nonce, data)?;
+        encrypt_in_place(&sk, &nonce, data)?;
         data.extend_from_slice(&nonce)?;
         sk.zeroize();
         Ok(())
@@ -165,14 +165,14 @@ impl KeyStore {
     ) -> Result<(), KeyStoreError> {
         const NONCE_LEN: usize = 12;
         if data.len() < NONCE_LEN {
-            return Err(KeyStoreError::AeadError(aes_gcm_siv::aead::Error));
+            return Err(KeyStoreError::AeadError(aead::Error));
         }
         let mut nonce = [0u8; NONCE_LEN];
         let other = data.as_ref().iter().rev().take(NONCE_LEN);
         nonce.iter_mut().rev().zip(other).for_each(|(v, b)| *v = *b);
         // remove the nonce, we got it now.
         data.truncate(data.as_ref().len() - NONCE_LEN);
-        aes_decrypt(&sk, &nonce, data)?;
+        decrypt_in_place(&sk, &nonce, data)?;
         sk.zeroize();
         Ok(())
     }
@@ -291,15 +291,23 @@ impl TryFrom<String> for KeyStore {
     }
 }
 
-fn aes_decrypt<B: Buffer>(key: &[u8], nonce: &[u8], data: &mut B) -> Result<(), KeyStoreError> {
-    let cipher = Aes256GcmSiv::new(key.into());
+fn decrypt_in_place<B: Buffer>(
+    key: &[u8],
+    nonce: &[u8],
+    data: &mut B,
+) -> Result<(), KeyStoreError> {
+    let cipher = ChaCha20Poly1305::new(key.into());
     cipher
         .decrypt_in_place(nonce.into(), b"", data)
         .map_err(Into::into)
 }
 
-fn aes_encrypt<B: Buffer>(key: &[u8], nonce: &[u8], data: &mut B) -> Result<(), KeyStoreError> {
-    let cipher = Aes256GcmSiv::new(key.into());
+fn encrypt_in_place<B: Buffer>(
+    key: &[u8],
+    nonce: &[u8],
+    data: &mut B,
+) -> Result<(), KeyStoreError> {
+    let cipher = ChaCha20Poly1305::new(key.into());
     cipher
         .encrypt_in_place(nonce.into(), b"", data)
         .map_err(Into::into)
