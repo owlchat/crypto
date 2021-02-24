@@ -56,7 +56,7 @@ jobs:
           java-version: 1.8
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v1
+        uses: android-actions/setup-android@v2
 
       - name: Cache NDK
         id: cache-ndk
@@ -70,7 +70,7 @@ jobs:
         run: $ANDROID_SDK_ROOT/tools/bin/sdkmanager ndk-bundle
 
       - name: Set Android NDK Env
-        run: echo '::set-env name=ANDROID_NDK_HOME::/Users/runner/android/ndk-bundle'
+        run: echo 'name=ANDROID_NDK_HOME::/Users/runner/android/ndk-bundle' >> $GITHUB_ENV
 
       - name: Install Android Targets
         run: rustup target add aarch64-linux-android x86_64-linux-android

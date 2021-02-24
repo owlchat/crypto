@@ -74,11 +74,11 @@ private = true
 condition = { env_true = ["DEV"], env_set = ["ANDROID_TARGET"] }
 command = "cargo"
 args = [
-  "ndk", 
-  "--platform", 
-  "${ANDROID_PLATFORM_VERSION}", 
-  "--target", 
-  "${ANDROID_TARGET}", 
+  "ndk",
+  "--platform",
+  "${ANDROID_PLATFORM_VERSION}",
+  "--target",
+  "${ANDROID_TARGET}",
   "build",
 ]
 
@@ -87,11 +87,11 @@ private = true
 condition = { env_true = ["RELEASE"], env_set = ["ANDROID_TARGET"] }
 command = "cargo"
 args = [
-  "ndk", 
-  "--platform", 
-  "${ANDROID_PLATFORM_VERSION}", 
-  "--target", 
-  "${ANDROID_TARGET}", 
+  "ndk",
+  "--platform",
+  "${ANDROID_PLATFORM_VERSION}",
+  "--target",
+  "${ANDROID_TARGET}",
   "build",
   "--release"
 ]
@@ -138,7 +138,6 @@ condition = { env_true = ["RELEASE"] }
 env = { ANDROID_TARGET = "i686-linux-android" }
 run_task = "android-build-release"
 
-  
 [tasks.android-x86_64-release]
 private = true
 condition = { env_true = ["RELEASE"] }
