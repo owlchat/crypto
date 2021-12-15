@@ -34,19 +34,19 @@ jobs:
       - name: Build protobuf library
         if: steps.cache-protobuf.outputs.cache-hit != 'true'
         run: |
-           git clone https://github.com/protocolbuffers/protobuf.git
-           cd protobuf
-           git submodule update --init --recursive
-           ./autogen.sh
-           ./autogen.sh
-           ./configure
-           make
-           make check
+          git clone https://github.com/protocolbuffers/protobuf.git
+          cd protobuf
+          git submodule update --init --recursive
+          ./autogen.sh
+          ./autogen.sh
+          ./configure
+          make
+          make check
       - name: Install protobuf library
-         run: |
-           cd protobuf
-           sudo make install
-           sudo ldconfig
+        run: |
+          cd protobuf
+          sudo make install
+          sudo ldconfig
       - name: Install nightly toolchain
         id: rust_toolchain
         uses: actions-rs/toolchain@v1
