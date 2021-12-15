@@ -77,7 +77,8 @@ jobs:
       - name: Run cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: build --no-default-features
+          command: build
+          args: --no-default-features
 
       - name: Build FFI Tests
         run: clang++ -std=c++20 -stdlib=libc++ ffi/tests/full.cc ffi/tests/def.pb.cc -L target/debug -lprotobuf -lowlchat_crypto -o target/debug/full
