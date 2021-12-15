@@ -7,46 +7,9 @@ jobs:
     name: CI
     runs-on: ubuntu-latest
     steps:
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
-        with:
-          path: ${{ runner.temp }}/llvm/10.0
-          key: cached-llvm-10.0
-
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
-        with:
-          version: "10.0"
-          directory: ${{ runner.temp }}/llvm/10.0
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Cache protobuf library
-        id: cache-protobuf
-        uses: actions/cache@v1
-        with:
-          path: protobuf
-          key: ${{ runner.os }}-protobuf
-
-      - name: Build protobuf library
-        if: steps.cache-protobuf.outputs.cache-hit != 'true'
-        run: |
-          git clone https://github.com/protocolbuffers/protobuf.git
-          cd protobuf
-          git submodule update --init --recursive
-          ./autogen.sh
-          ./autogen.sh
-          ./configure
-          make
-          make check
-      - name: Install protobuf library
-        run: |
-          cd protobuf
-          sudo make install
-          sudo ldconfig
       - name: Install nightly toolchain
         id: rust_toolchain
         uses: actions-rs/toolchain@v1
@@ -54,9 +17,6 @@ jobs:
           profile: minimal
           toolchain: nightly
           override: true
-
-      - name: Install valgrind
-        run: sudo apt install -y valgrind
 
       - name: Cache Cargo
         uses: actions/cache@v2
@@ -78,13 +38,3 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --no-default-features
-
-      - name: Build FFI Tests
-        run: clang++ -std=c++20 -stdlib=libc++ ffi/tests/full.cc ffi/tests/def.pb.cc -L target/debug -lprotobuf -lowlchat_crypto -o target/debug/full
-
-      - name: Run FFI Tests
-        run: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:target/debug/ target/debug/full
-
-      - name: Valgrind Memory Checks
-        run: LD_LIBRARY_PATH=$LD_LIBRARY_PATH:target/debug/ valgrind --error-exitcode=1 --leak-check=summary --track-origins=yes target/debug/full
