@@ -93,6 +93,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
     len: usize,
 ) -> OwlchatResult {
     use allo_isolate::Isolate;
+    use allo_isolate::ZeroCopyBuffer;
     use prost::Message;
 
     // check if the pointer is null first
@@ -112,16 +113,18 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
     let res = handle_request(req);
     let mut res_buf = Vec::with_capacity(res.encoded_len());
     res.encode(&mut res_buf).unwrap();
-    isolate.post(res_buf);
+    isolate.post(ZeroCopyBuffer(res_buf));
     OwlchatResult::Ok
 }
 
+#[cfg(not(feature = "dart-ffi"))]
 #[repr(C)]
 pub struct Buffer {
     data: *mut u8,
     len: usize,
 }
 
+#[cfg(not(feature = "dart-ffi"))]
 impl Default for Buffer {
     fn default() -> Self {
         Self {

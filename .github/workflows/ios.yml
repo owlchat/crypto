@@ -58,11 +58,11 @@ jobs:
         continue-on-error: false
         with:
           command: make
-          args: ios --profile release
+          args: -p production ios
 
       - name: Prepare Release
         run: |
-          mv target/universal/release/libowlchat_crypto.a target/libowlchat_crypto-universal-apple-ios.a
+          mv target/universal/release/libowlchat_crypto.a target/libowlchat_crypto_universal_apple_ios.a
           mv ffi/binding.h target/owlchat_crypto.h
 
       - name: Create release
@@ -70,7 +70,7 @@ jobs:
         with:
           prerelease: startsWith(github.ref, 'refs/tags/')
           files: |
-            target/libowlchat_crypto-universal-apple-ios.a
+            target/libowlchat_crypto_universal_apple_ios.a
             target/owlchat_crypto.h
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

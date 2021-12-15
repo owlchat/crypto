@@ -80,26 +80,26 @@ jobs:
         continue-on-error: false
         with:
           command: make
-          args: android-dev --profile release
+          args: -p production android-dev
 
       - name: Run cargo make android ARM64 (Release)
         uses: actions-rs/cargo@v1
         continue-on-error: false
         with:
           command: make
-          args: android-arm --profile release
+          args: -p production android-arm
 
       - name: Prepare Release
         run: |
-          mv target/aarch64-linux-android/release/libowlchat_crypto.so target/libowlchat_crypto-aarch64-linux-android.so
-          mv target/x86_64-linux-android/release/libowlchat_crypto.so target/libowlchat_crypto-x86_64-linux-android.so
+          mv target/aarch64-linux-android/release/libowlchat_crypto.so target/libowlchat_crypto_aarch64_linux_android.so
+          mv target/x86_64-linux-android/release/libowlchat_crypto.so target/libowlchat_crypto_x86_64_linux_android.so
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           prerelease: startsWith(github.ref, 'refs/tags/')
           files: |
-            target/libowlchat_crypto-aarch64-linux-android.so
-            target/libowlchat_crypto-x86_64-linux-android.so
+            target/libowlchat_crypto_aarch64_linux_android.so
+            target/libowlchat_crypto_x86_64_linux_android.so
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

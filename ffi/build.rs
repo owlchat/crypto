@@ -24,6 +24,11 @@ fn main() {
             String::from("feature = dart-ffi"),
             String::from("DEFINE_DART"),
         )]),
+        parse: cbindgen::ParseConfig {
+            parse_deps: true,
+            include: Some(vec![String::from("allo_isolate")]),
+            ..Default::default()
+        },
         ..Default::default()
     };
     cbindgen::Builder::new()

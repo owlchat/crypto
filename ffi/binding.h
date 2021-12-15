@@ -8,10 +8,12 @@ enum class OwlchatResult {
   InvalidProtobuf = 5,
 };
 
+#if !defined(DEFINE_DART)
 struct Buffer {
   uint8_t *data;
   uintptr_t len;
 };
+#endif
 
 extern "C" {
 

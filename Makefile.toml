@@ -1,16 +1,10 @@
+[config]
+additional_profiles = ["development", "production"]
+
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["ffi"]
 ANDROID_PLATFORM_VERSION = "28"
-LIB_OUT_DIR = "debug"
-TARGET_OS = "unknown"
-DEV = true
-RELEASE = false
-
-[env.release]
-RELEASE = true
-DEV = false
-LIB_OUT_DIR = "release"
 
 [tasks.test-flow]
 disabled = true
@@ -32,8 +26,6 @@ category = "Build"
 dependencies = ["android"]
 
 [tasks.build.mac]
-description = "Runs the rust compiler."
-category = "Build"
 dependencies = ["android", "ios"]
 
 [tasks.ios]
@@ -49,7 +41,7 @@ command = "cargo"
 args = ["lipo"]
 
 [tasks.ios-release]
-condition = { platforms = ["mac"], env_true = ["RELEASE"] }
+condition = { platforms = ["mac"], profiles = ["production"] }
 description = "Build ios targets."
 category = "Build"
 command = "cargo"
@@ -71,7 +63,7 @@ dependencies = [
 
 [tasks.android-build]
 private = true
-condition = { env_true = ["DEV"], env_set = ["ANDROID_TARGET"] }
+condition = { profiles = ["development"], env_set = ["ANDROID_TARGET"] }
 command = "cargo"
 args = [
   "ndk",
@@ -84,7 +76,7 @@ args = [
 
 [tasks.android-build-release]
 private = true
-condition = { env_true = ["RELEASE"], env_set = ["ANDROID_TARGET"] }
+condition = { profiles = ["production"], env_set = ["ANDROID_TARGET"] }
 command = "cargo"
 args = [
   "ndk",
@@ -98,48 +90,48 @@ args = [
 
 [tasks.android-aarch64]
 private = true
-condition = { env_true = ["DEV"] }
+condition = { profiles = ["development"] }
 env = { ANDROID_TARGET = "aarch64-linux-android" }
 run_task = "android-build"
 
 [tasks.android-armv7]
 private = true
-condition = { env_true = ["DEV"] }
+condition = { profiles = ["development"] }
 env = { ANDROID_TARGET = "armv7-linux-androideabi" }
 run_task = "android-build"
 
 [tasks.android-i686]
 private = true
-condition = { env_true = ["DEV"] }
+condition = { profiles = ["development"] }
 env = { ANDROID_TARGET = "i686-linux-android" }
 run_task = "android-build"
 
 [tasks.android-x86_64]
 private = true
-condition = { env_true = ["DEV"] }
+condition = { profiles = ["development"] }
 env = { ANDROID_TARGET = "x86_64-linux-android" }
 run_task = "android-build"
 
 [tasks.android-aarch64-release]
 private = true
-condition = { env_true = ["RELEASE"] }
+condition = { profiles = ["production"] }
 env = { ANDROID_TARGET = "aarch64-linux-android" }
 run_task = "android-build-release"
 
 [tasks.android-armv7-release]
 private = true
-condition = { env_true = ["RELEASE"] }
+condition = { profiles = ["production"] }
 env = { ANDROID_TARGET = "armv7-linux-androideabi" }
 run_task = "android-build-release"
 
 [tasks.android-i686-release]
 private = true
-condition = { env_true = ["RELEASE"] }
+condition = { profiles = ["production"] }
 env = { ANDROID_TARGET = "i686-linux-android" }
 run_task = "android-build-release"
 
 [tasks.android-x86_64-release]
 private = true
-condition = { env_true = ["RELEASE"] }
+condition = { profiles = ["production"] }
 env = { ANDROID_TARGET = "x86_64-linux-android" }
 run_task = "android-build-release"
