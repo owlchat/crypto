@@ -25,11 +25,12 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Cache protobuf library
-         id: cache-protobuf
-         uses: actions/cache@v1
-         with:
-           path: protobuf
-           key: ${{ runner.os }}-protobuf
+        id: cache-protobuf
+        uses: actions/cache@v1
+        with:
+          path: protobuf
+          key: ${{ runner.os }}-protobuf
+
       - name: Build protobuf library
         if: steps.cache-protobuf.outputs.cache-hit != 'true'
         run: |
