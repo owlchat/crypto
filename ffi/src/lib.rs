@@ -1,373 +1,434 @@
-use core::slice;
-use std::{ffi::c_void, ffi::CString, mem::ManuallyDrop, os::raw::c_char, path::PathBuf, ptr};
+use once_cell::sync::OnceCell;
 
-use keystore::KeyStore;
-pub use keystore::SharedBuffer;
+pub mod pb;
 
-mod macros;
-
-type RawKeyStore = *const c_void;
-type RawMutFixed32Array = *mut Fixed32Array;
-type RawFixed32Array = *const Fixed32Array;
-type RawSharedBuffer = *mut SharedBuffer;
-type RawMutFixed64Array = *mut Fixed64Array;
-type RawFixed64Array = *const Fixed64Array;
+static mut KEYPAIR: OnceCell<crypto::KeyPair> = OnceCell::new();
 
 #[repr(C)]
-pub struct Fixed32Array {
-    buf: *mut u8,
+pub enum OwlchatResult {
+    Ok = 1,
+    NotInitialized = 2,
+    AlreadyInitialized = 3,
+    NullPointerDetected = 4,
+    InvalidProtobuf = 5,
 }
 
-impl Fixed32Array {
-    unsafe fn write(&mut self, data: [u8; 32]) {
-        let buf = slice::from_raw_parts_mut(self.buf, 32);
-        buf.copy_from_slice(&data);
-    }
-}
-
-impl<'a> From<&'a Fixed32Array> for [u8; 32] {
-    fn from(arr: &'a Fixed32Array) -> [u8; 32] {
-        let slice = unsafe { slice::from_raw_parts(arr.buf, 32) };
-        let mut fixed_slice = [0u8; 32];
-        fixed_slice.copy_from_slice(slice);
-        fixed_slice
-    }
-}
-
-#[repr(C)]
-pub struct Fixed64Array {
-    buf: *mut u8,
-}
-
-impl Fixed64Array {
-    unsafe fn write(&mut self, data: [u8; 64]) {
-        let buf = slice::from_raw_parts_mut(self.buf, 64);
-        buf.copy_from_slice(&data);
-    }
-}
-
-impl<'a> From<&'a Fixed64Array> for [u8; 64] {
-    fn from(arr: &'a Fixed64Array) -> [u8; 64] {
-        let slice = unsafe { slice::from_raw_parts(arr.buf, 64) };
-        let mut fixed_slice = [0u8; 64];
-        fixed_slice.copy_from_slice(slice);
-        fixed_slice
-    }
-}
-
-#[repr(C)]
-pub enum OperationStatus {
-    Ok,
-    Unknwon,
-    KeyStoreNotInialized,
-    BadFixed32ArrayProvided,
-    BadFixed64ArrayProvided,
-    BadSharedBufferProvided,
-    KeyStoreHasNoSeed,
-    AeadError,
-    Bip39Error,
-    Utf8Error,
-    IoError,
-    InvalidSignature,
-}
-/// Create a new [`KeyStore`].
+/// Initialize the crypto library.
 ///
-/// See [`KeyStore::new`] for full docs.
+/// This function must be called before any other crypto function.
+/// It is **NOT** safe to call this function multiple times.
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::*;
+///
+/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the [crypto::KeyPair] is already initialized.
+///
+/// # Safety
+///
+/// Should be only called once during the lifecycle of the application.
 #[no_mangle]
-pub extern "C" fn keystore_new() -> RawKeyStore {
-    let ks = KeyStore::new();
-    let boxed = Box::new(ks);
-    Box::into_raw(boxed) as _
-}
-
-/// Init the `KeyStore` with existing SecretKey Bytes.
-///
-/// See [`KeyStore::init`] for full docs.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `secret_key` is not null
-/// otherwise it will return null.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_init(secret_key: RawFixed32Array) -> RawKeyStore {
-    if let Some(secret_key) = secret_key.as_ref() {
-        let ks = KeyStore::init(secret_key.into());
-        let boxed = Box::new(ks);
-        Box::into_raw(boxed) as _
+pub unsafe extern "C" fn owlchat_crypto_init() -> OwlchatResult {
+    if KEYPAIR.get().is_some() {
+        OwlchatResult::AlreadyInitialized
     } else {
-        ptr::null()
+        let _ = KEYPAIR.set(crypto::KeyPair::new());
+        OwlchatResult::Ok
     }
 }
 
-/// Get the KeyStore Public Key as `Fixed32Array`.
+/// Destroy the crypto library, freeing all memory.
 ///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
+/// This function must be called before the application exits.
+/// It is **NOT** safe to call this function multiple times.
+///
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::*;
+///
+/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::NotInitialized);
+/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
+/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::Ok);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if Keypair is not initialized yet.
+///
+/// # Safety
+///
+/// Calling this function will deallocate the [crypto::KeyPair] and remove it from the memory
+/// so calling it, while the [crypto::KeyPair] is still in use, will cause undefined behavior.
 #[no_mangle]
-pub unsafe extern "C" fn keystore_public_key(
-    ks: RawKeyStore,
-    out: RawMutFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    let pk = ks.public_key();
-    if let Some(out) = out.as_mut() {
-        out.write(pk);
-        OperationStatus::Ok
-    } else {
-        OperationStatus::BadFixed32ArrayProvided
+pub unsafe extern "C" fn owlchat_crypto_destory() -> OwlchatResult {
+    match KEYPAIR.take() {
+        Some(_) => OwlchatResult::Ok,
+        None => OwlchatResult::NotInitialized,
     }
 }
 
-/// Get the KeyStore Secret Key as `Fixed32Array`.
+/// This a Dart FFI interface to be called inside an Isolate.
 ///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
+/// Passing a Isolate Port, along with some Protobuf payload, to this function will
+/// process the payload and return the result to the isolate over the port.
+///
+/// # Errors
+///
+/// This function will return an error if the provided payload is not valid.
+///
+/// # Safety
+///
+/// This function is unsafe because it deals with raw pointers.
+#[cfg(feature = "dart-ffi")]
 #[no_mangle]
-pub unsafe extern "C" fn keystore_secret_key(
-    ks: RawKeyStore,
-    out: RawMutFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    let sk = ks.secret_key();
-    if let Some(out) = out.as_mut() {
-        out.write(sk);
-        OperationStatus::Ok
-    } else {
-        OperationStatus::BadFixed32ArrayProvided
-    }
-}
+pub unsafe extern "C" fn owlchat_crypto_dispatch(
+    port: i64,
+    data: *const u8,
+    len: usize,
+) -> OwlchatResult {
+    use allo_isolate::Isolate;
+    use prost::Message;
 
-/// Get the KeyStore Seed as `Fixed32Array`.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_seed(
-    ks: RawKeyStore,
-    out: RawMutFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    let seed = ks.seed();
-    match (seed, out.as_mut()) {
-        (Some(seed), Some(out)) => {
-            out.write(seed);
-            OperationStatus::Ok
+    // check if the pointer is null first
+    if data.is_null() {
+        return OwlchatResult::NullPointerDetected;
+    }
+    // then read it as a slice
+    let buf = std::slice::from_raw_parts(data, len);
+    let isolate = Isolate::new(port);
+    let req = match Message::decode(buf) {
+        Ok(v) => v,
+        Err(e) => {
+            isolate.post(e.to_string());
+            return OwlchatResult::InvalidProtobuf;
         }
-        (None, _) => OperationStatus::KeyStoreHasNoSeed,
-        (Some(_), None) => OperationStatus::BadFixed32ArrayProvided,
-    }
-}
-
-/// Perform a Diffie-Hellman key agreement to produce a `SharedSecret`.
-///
-/// see [`KeyStore::dh`] for full docs.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_dh(
-    ks: RawKeyStore,
-    their_public: RawFixed32Array,
-    out: RawMutFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    match (their_public.as_ref(), out.as_mut()) {
-        (Some(pk), Some(out)) => {
-            let shared_secret = ks.dh(pk.into());
-            out.write(shared_secret);
-            OperationStatus::Ok
-        }
-        _ => OperationStatus::BadFixed32ArrayProvided,
-    }
-}
-
-/// Create a [`Mnemonic`] Backup from the provided seed (or the keystore seed if exist).
-///
-/// the caller should call [`keystore_string_free`] after being done with it.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-/// - if `seed` is empty, it will try to use the `KeyStore` seed if available.
-///
-/// otherwise it will return null.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_backup(ks: RawKeyStore, seed: RawFixed32Array) -> *const c_char {
-    let ks = keystore!(ks, ptr::null());
-    let paper_key = if let Some(seed) = seed.as_ref() {
-        unwrap_or_null!(ks.backup(Some(seed.into())))
-    } else {
-        unwrap_or_null!(ks.backup(None))
     };
-    let cstring = CString::new(paper_key).expect("should never fails");
-    let cstring = ManuallyDrop::new(cstring);
-    cstring.as_ptr()
+    let res = handle_request(req);
+    let mut res_buf = Vec::with_capacity(res.encoded_len());
+    res.encode(&mut res_buf).unwrap();
+    isolate.post(res_buf);
+    OwlchatResult::Ok
 }
 
-/// Restore a `KeyStore` from a [`Mnemonic`] Paper Backup.
-///
-/// see [`KeyStore::restore`] for full docs.
-/// ### Safety
-/// this function assumes that:
-/// - `paper_key` is not null and a valid c string.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_restore(paper_key: *const c_char) -> RawKeyStore {
-    let paper_key = cstr!(paper_key, ptr::null());
-    let ks = unwrap_or_null!(KeyStore::restore(paper_key.to_string()));
-    let boxed = Box::new(ks);
-    Box::into_raw(boxed) as _
+#[repr(C)]
+pub struct Buffer {
+    data: *mut u8,
+    len: usize,
 }
 
-/// Encrypt the Given data using `KeyStore` owned `SecretKey`
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-/// - if `shared_secret` is null, it will use the `KeyStore` secret key.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_encrypt(
-    ks: RawKeyStore,
-    data: RawSharedBuffer,
-    shared_secret: RawFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    if let Some(data) = data.as_mut() {
-        if let Some(shared_secret) = shared_secret.as_ref() {
-            result!(ks.encrypt_with(shared_secret.into(), data));
-        } else {
-            result!(ks.encrypt(data));
-        };
-        OperationStatus::Ok
-    } else {
-        OperationStatus::BadSharedBufferProvided
-    }
-}
-
-/// Decrypt the Given data using `KeyStore` owned `SecretKey`
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-/// - if `shared_secret` is null, it will use the `KeyStore` secret key.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_decrypt(
-    ks: RawKeyStore,
-    data: RawSharedBuffer,
-    shared_secret: RawFixed32Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    if let Some(data) = data.as_mut() {
-        if let Some(shared_secret) = shared_secret.as_ref() {
-            result!(ks.decrypt_with(shared_secret.into(), data));
-        } else {
-            result!(ks.decrypt(data));
-        };
-        OperationStatus::Ok
-    } else {
-        OperationStatus::BadSharedBufferProvided
-    }
-}
-
-/// Calculate the signature of the message using the given `KeyStore`.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `ks` is not null pointer to the `KeyStore`.
-/// - `message` is not null pointer and valid bytes buffer.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_calculate_signature(
-    ks: RawKeyStore,
-    message: RawSharedBuffer,
-    out: RawMutFixed64Array,
-) -> OperationStatus {
-    let ks = keystore!(ks);
-    match (message.as_ref(), out.as_mut()) {
-        (Some(msg), Some(out)) => {
-            let sig = ks.calculate_signature(msg.as_ref());
-            out.write(sig);
-            OperationStatus::Ok
+impl Default for Buffer {
+    fn default() -> Self {
+        Self {
+            data: std::ptr::null_mut(),
+            len: 0,
         }
-        (Some(_), None) => OperationStatus::BadFixed64ArrayProvided,
-        (None, Some(_)) => OperationStatus::BadSharedBufferProvided,
-        _ => OperationStatus::Unknwon,
     }
 }
 
-/// Verifies the signature of the message using the given `PublicKey`.
+/// Main function to handle the request.
 ///
-/// ### Safety
-/// this function assumes that:
-/// - `thier_public` is not null pointer to the fixed size 32 bytes array.
-/// - `message` is not null pointer and valid bytes buffer.
-/// - `signature` is not null pointer to the fixed size 64 bytes array.
+/// # Errors
+///
+/// This function will return null if the provided payload is not valid.
+///
+/// # Safety
+/// you should free the returned buffer using [owlchat_crypto_free_buffer] after you are done with it.
+#[cfg(not(feature = "dart-ffi"))]
 #[no_mangle]
-pub unsafe extern "C" fn keystore_verify_signature(
-    thier_public: RawFixed32Array,
-    message: RawSharedBuffer,
-    signature: RawFixed64Array,
-) -> OperationStatus {
-    match (thier_public.as_ref(), message.as_ref(), signature.as_ref()) {
-        (Some(public), Some(msg), Some(sig)) => {
-            let ok = KeyStore::verify_signature(public.into(), msg.as_ref(), sig.into());
-            if ok {
-                OperationStatus::Ok
-            } else {
-                OperationStatus::InvalidSignature
+pub unsafe extern "C" fn owlchat_crypto_dispatch(data: *const u8, len: usize) -> Buffer {
+    use prost::Message;
+
+    // check if the pointer is null first
+    if data.is_null() {
+        return Default::default();
+    }
+    // then read it as a slice
+    let buf = std::slice::from_raw_parts(data, len);
+    let req = match Message::decode(buf) {
+        Ok(v) => v,
+        Err(_) => {
+            return Default::default();
+        }
+    };
+    let res = handle_request(req);
+    let mut res_buf = Vec::with_capacity(res.encoded_len());
+    res.encode(&mut res_buf).unwrap();
+    let mut boxed_buf = res_buf.into_boxed_slice();
+    let data = boxed_buf.as_mut_ptr();
+    let len = boxed_buf.len();
+    std::mem::forget(boxed_buf);
+    Buffer { data, len }
+}
+
+/// Free the buffer returned by [owlchat_crypto_dispatch].
+///
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::owlchat_crypto_free_buffer;
+///
+/// unsafe { owlchat_crypto_free_buffer(buffer) };
+/// ```
+///
+/// # Safety
+///
+/// This function is unsafe because it deals with raw pointers.
+#[cfg(not(feature = "dart-ffi"))]
+#[no_mangle]
+pub unsafe extern "C" fn owlchat_crypto_free_buffer(buffer: Buffer) {
+    if buffer.data.is_null() {
+        return;
+    }
+    let s = std::slice::from_raw_parts_mut(buffer.data, buffer.len);
+    Box::from_raw(s.as_mut_ptr());
+}
+
+unsafe fn handle_request(req: pb::Request) -> pb::Response {
+    use pb::request::Body as RequestBody;
+    use pb::response::Body as ResponseBody;
+    let body = match req.body {
+        Some(body) => body,
+        None => {
+            return pb::Response {
+                body: Some(ResponseBody::Error(
+                    pb::response::Error::MissingRequestBody.into(),
+                )),
             }
         }
-        (None, _, _) => OperationStatus::BadFixed32ArrayProvided,
-        (_, _, None) => OperationStatus::BadFixed64ArrayProvided,
-        (_, None, _) => OperationStatus::BadSharedBufferProvided,
-    }
-}
+    };
 
-/// Calculate SHA256 Hash of the provided file path.
-///
-/// ### Safety
-/// this function assumes that:
-/// - `file_path` is not null pointer.
-/// - `out` is not null pointer.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_sha256_hash(
-    file_path: *const c_char,
-    out: RawMutFixed32Array,
-) -> OperationStatus {
-    let path = cstr!(file_path, OperationStatus::Utf8Error);
-    if out.is_null() {
-        return OperationStatus::BadFixed32ArrayProvided;
-    }
-    let path = PathBuf::from(path);
-    match keystore::util::sh256_hash(path) {
-        Ok(hash) => {
-            (*out).write(hash);
-            OperationStatus::Ok
+    let res_body = match body {
+        RequestBody::ValidateMnemonic(v) => {
+            let is_valid = crypto::KeyPair::is_valid_mnemonic(&v.phrase);
+            ResponseBody::ValidMnemonic(is_valid)
         }
-        _ => OperationStatus::IoError,
+        RequestBody::Verify(v) => {
+            let their_public_key = match public_key_from(&v.public_key) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            let signature = match signature_from(&v.sig) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            let is_valid = crypto::KeyPair::verify_signature(their_public_key, &v.msg, signature);
+            ResponseBody::ValidSignature(is_valid)
+        }
+        RequestBody::GenerateKeyPair(_) => {
+            let keypair = crypto::KeyPair::new();
+            let public_key = keypair.public_key().to_vec();
+            let secret_key = keypair.secret_key().to_vec();
+            let seed = keypair.seed().map(|v| v.to_vec()).unwrap_or_default();
+            let _ = KEYPAIR.set(keypair);
+            ResponseBody::KeyPair(pb::KeyPair {
+                public_key,
+                secret_key,
+                seed,
+            })
+        }
+        RequestBody::InitKeyPair(v) => {
+            let secret_key = match secret_key_from(&v.secret_key) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            let keypair = crypto::KeyPair::init(secret_key);
+            let public_key = keypair.public_key().to_vec();
+            let secret_key = keypair.secret_key().to_vec();
+            let _ = KEYPAIR.set(keypair);
+            ResponseBody::KeyPair(pb::KeyPair {
+                public_key,
+                secret_key,
+                seed: Default::default(),
+            })
+        }
+        RequestBody::RestoreKeyPair(v) => {
+            let keypair = match crypto::KeyPair::restore(v.paper_key) {
+                Ok(v) => v,
+                Err(_) => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::InvalidPaperKey.into(),
+                        )),
+                    }
+                }
+            };
+            let public_key = keypair.public_key().to_vec();
+            let secret_key = keypair.secret_key().to_vec();
+            let _ = KEYPAIR.set(keypair);
+            ResponseBody::KeyPair(pb::KeyPair {
+                public_key,
+                secret_key,
+                seed: vec![],
+            })
+        }
+        RequestBody::BackupKeyPair(v) => {
+            let seed = seed_from(&v.maybe_seed).ok();
+            let keypair = match KEYPAIR.get() {
+                Some(v) => v,
+                None => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::NotInitialized.into(),
+                        )),
+                    }
+                }
+            };
+            let paper_key = match keypair.backup(seed) {
+                Ok(v) => v,
+                Err(_) => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(pb::response::Error::InvalidSeed.into())),
+                    }
+                }
+            };
+            ResponseBody::Mnemonic(paper_key)
+        }
+        RequestBody::Encrypt(mut v) => {
+            let msg = &mut v.plaintext;
+            let keypair = match KEYPAIR.get() {
+                Some(v) => v,
+                None => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::NotInitialized.into(),
+                        )),
+                    }
+                }
+            };
+            match keypair.encrypt(msg) {
+                Ok(_) => {
+                    // the plaintext now is the ciphertext
+                    let ciphertext = v.plaintext;
+                    ResponseBody::EncryptedMessage(ciphertext)
+                }
+                Err(_) => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(pb::response::Error::Unknown.into())),
+                    }
+                }
+            }
+        }
+        RequestBody::Decrypt(mut v) => {
+            let msg = &mut v.ciphertext;
+            let keypair = match KEYPAIR.get() {
+                Some(v) => v,
+                None => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::NotInitialized.into(),
+                        )),
+                    }
+                }
+            };
+            match keypair.decrypt(msg) {
+                Ok(_) => {
+                    // the ciphertext now is the plaintext
+                    let plaintext = v.ciphertext;
+                    ResponseBody::DecryptedMessage(plaintext)
+                }
+                Err(_) => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(pb::response::Error::Unknown.into())),
+                    }
+                }
+            }
+        }
+        RequestBody::Sign(v) => {
+            let keypair = match KEYPAIR.get() {
+                Some(v) => v,
+                None => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::NotInitialized.into(),
+                        )),
+                    }
+                }
+            };
+            let signature = keypair.calculate_signature(&v.msg);
+            ResponseBody::Signature(signature.to_vec())
+        }
+        RequestBody::DiffieHellmanKeyExchange(v) => {
+            let their_public_key = match public_key_from(&v.their_public_key) {
+                Ok(v) => v,
+                Err(e) => return e,
+            };
+            let keypair = match KEYPAIR.get() {
+                Some(v) => v,
+                None => {
+                    return pb::Response {
+                        body: Some(ResponseBody::Error(
+                            pb::response::Error::NotInitialized.into(),
+                        )),
+                    }
+                }
+            };
+            let shared_secret = keypair.dh(their_public_key);
+            ResponseBody::SharedSecret(shared_secret.to_vec())
+        }
+    };
+    pb::Response {
+        body: Some(res_body),
     }
 }
 
-/// Free (Drop) a string value allocated by Rust.
-/// ### Safety
-/// this assumes that the given pointer is not null.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_string_free(ptr: *const c_char) {
-    if !ptr.is_null() {
-        let cstring = CString::from_raw(ptr as _);
-        drop(cstring)
+fn public_key_from(v: &[u8]) -> Result<[u8; crypto::PUBLIC_KEY_LENGTH], pb::Response> {
+    // check the length of the public key
+    if v.len() != crypto::PUBLIC_KEY_LENGTH {
+        return Err(pb::Response {
+            body: Some(pb::response::Body::Error(
+                pb::response::Error::InvalidPublicKey.into(),
+            )),
+        });
     }
+    let mut res = [0u8; crypto::PUBLIC_KEY_LENGTH];
+    res.copy_from_slice(&v[0..crypto::PUBLIC_KEY_LENGTH]);
+    Ok(res)
 }
 
-/// Free (Drop) the created KeyStore.
-/// ### Safety
-/// this assumes that the given pointer is not null.
-#[no_mangle]
-pub unsafe extern "C" fn keystore_free(ks: RawKeyStore) {
-    if !ks.is_null() {
-        let ks = Box::from_raw(ks as *mut KeyStore);
-        drop(ks);
+fn secret_key_from(v: &[u8]) -> Result<[u8; crypto::SECRET_KEY_LENGTH], pb::Response> {
+    // check the length of the secret key
+    if v.len() != crypto::SECRET_KEY_LENGTH {
+        return Err(pb::Response {
+            body: Some(pb::response::Body::Error(
+                pb::response::Error::InvalidSecretKey.into(),
+            )),
+        });
     }
+    let mut res = [0u8; crypto::SECRET_KEY_LENGTH];
+    res.copy_from_slice(&v[0..crypto::SECRET_KEY_LENGTH]);
+    Ok(res)
+}
+
+fn seed_from(v: &[u8]) -> Result<[u8; crypto::SEED_LENGTH], pb::Response> {
+    // check the length of the seed
+    if v.len() != crypto::SEED_LENGTH {
+        return Err(pb::Response {
+            body: Some(pb::response::Body::Error(
+                pb::response::Error::InvalidSeed.into(),
+            )),
+        });
+    }
+    let mut res = [0u8; crypto::SEED_LENGTH];
+    res.copy_from_slice(&v[0..crypto::SEED_LENGTH]);
+    Ok(res)
+}
+
+fn signature_from(v: &[u8]) -> Result<[u8; crypto::SIGNATURE_LENGTH], pb::Response> {
+    // check the length of the signature
+    if v.len() != crypto::SIGNATURE_LENGTH {
+        return Err(pb::Response {
+            body: Some(pb::response::Body::Error(
+                pb::response::Error::InvalidSignature.into(),
+            )),
+        });
+    }
+    let mut res = [0u8; crypto::SIGNATURE_LENGTH];
+    res.copy_from_slice(&v[0..crypto::SIGNATURE_LENGTH]);
+    Ok(res)
 }

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-  "keystore",
+  "crypto",
   "ffi",
 ]
 

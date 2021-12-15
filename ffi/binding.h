@@ -1,169 +1,109 @@
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 
-typedef enum {
-  Ok,
-  Unknwon,
-  KeyStoreNotInialized,
-  BadFixed32ArrayProvided,
-  BadFixed64ArrayProvided,
-  BadSharedBufferProvided,
-  KeyStoreHasNoSeed,
-  AeadError,
-  Bip39Error,
-  Utf8Error,
-  IoError,
-  InvalidSignature,
-} OperationStatus;
+enum class OwlchatResult {
+  Ok = 1,
+  NotInitialized = 2,
+  AlreadyInitialized = 3,
+  NullPointerDetected = 4,
+  InvalidProtobuf = 5,
+};
 
-typedef const void *RawKeyStore;
-
-typedef struct {
-  uint8_t *buf;
-} Fixed32Array;
-
-typedef const Fixed32Array *RawFixed32Array;
-
-typedef struct {
-  uint8_t *buf;
+struct Buffer {
+  uint8_t *data;
   uintptr_t len;
-  uintptr_t cap;
-} SharedBuffer;
+};
 
-typedef SharedBuffer *RawSharedBuffer;
+extern "C" {
 
-typedef struct {
-  uint8_t *buf;
-} Fixed64Array;
+/// Initialize the crypto library.
+///
+/// This function must be called before any other crypto function.
+/// It is **NOT** safe to call this function multiple times.
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::*;
+///
+/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if the [crypto::KeyPair] is already initialized.
+///
+/// # Safety
+///
+/// Should be only called once during the lifecycle of the application.
+OwlchatResult owlchat_crypto_init();
 
-typedef Fixed64Array *RawMutFixed64Array;
+/// Destroy the crypto library, freeing all memory.
+///
+/// This function must be called before the application exits.
+/// It is **NOT** safe to call this function multiple times.
+///
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::*;
+///
+/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::NotInitialized);
+/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
+/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::Ok);
+/// ```
+///
+/// # Errors
+///
+/// This function will return an error if Keypair is not initialized yet.
+///
+/// # Safety
+///
+/// Calling this function will deallocate the [crypto::KeyPair] and remove it from the memory
+/// so calling it, while the [crypto::KeyPair] is still in use, will cause undefined behavior.
+OwlchatResult owlchat_crypto_destory();
 
-typedef Fixed32Array *RawMutFixed32Array;
+#if defined(DEFINE_DART)
+/// This a Dart FFI interface to be called inside an Isolate.
+///
+/// Passing a Isolate Port, along with some Protobuf payload, to this function will
+/// process the payload and return the result to the isolate over the port.
+///
+/// # Errors
+///
+/// This function will return an error if the provided payload is not valid.
+///
+/// # Safety
+///
+/// This function is unsafe because it deals with raw pointers.
+OwlchatResult owlchat_crypto_dispatch(int64_t port, const uint8_t *data, uintptr_t len);
+#endif
 
-typedef const Fixed64Array *RawFixed64Array;
+#if !defined(DEFINE_DART)
+/// Main function to handle the request.
+///
+/// # Errors
+///
+/// This function will return null if the provided payload is not valid.
+///
+/// # Safety
+/// you should free the returned buffer using [owlchat_crypto_free_buffer] after you are done with it.
+Buffer owlchat_crypto_dispatch(const uint8_t *data, uintptr_t len);
+#endif
 
-// Create a [`Mnemonic`] Backup from the provided seed (or the keystore seed if exist).
-//
-// the caller should call [`keystore_string_free`] after being done with it.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-// - if `seed` is empty, it will try to use the `KeyStore` seed if available.
-//
-// otherwise it will return null.
-const char *keystore_backup(RawKeyStore ks, RawFixed32Array seed);
+#if !defined(DEFINE_DART)
+/// Free the buffer returned by [owlchat_crypto_dispatch].
+///
+/// # Examples
+///
+/// ```
+/// use owlchat_crypto::owlchat_crypto_free_buffer;
+///
+/// unsafe { owlchat_crypto_free_buffer(buffer) };
+/// ```
+///
+/// # Safety
+///
+/// This function is unsafe because it deals with raw pointers.
+void owlchat_crypto_free_buffer(Buffer buffer);
+#endif
 
-// Calculate the signature of the message using the given `KeyStore`.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-// - `message` is not null pointer and valid bytes buffer.
-OperationStatus keystore_calculate_signature(RawKeyStore ks,
-                                             RawSharedBuffer message,
-                                             RawMutFixed64Array out);
-
-// Decrypt the Given data using `KeyStore` owned `SecretKey`
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-// - if `shared_secret` is null, it will use the `KeyStore` secret key.
-OperationStatus keystore_decrypt(RawKeyStore ks,
-                                 RawSharedBuffer data,
-                                 RawFixed32Array shared_secret);
-
-// Perform a Diffie-Hellman key agreement to produce a `SharedSecret`.
-//
-// see [`KeyStore::dh`] for full docs.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-OperationStatus keystore_dh(RawKeyStore ks, RawFixed32Array their_public, RawMutFixed32Array out);
-
-// Encrypt the Given data using `KeyStore` owned `SecretKey`
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-// - if `shared_secret` is null, it will use the `KeyStore` secret key.
-OperationStatus keystore_encrypt(RawKeyStore ks,
-                                 RawSharedBuffer data,
-                                 RawFixed32Array shared_secret);
-
-// Free (Drop) the created KeyStore.
-// ### Safety
-// this assumes that the given pointer is not null.
-void keystore_free(RawKeyStore ks);
-
-// Init the `KeyStore` with existing SecretKey Bytes.
-//
-// See [`KeyStore::init`] for full docs.
-//
-// ### Safety
-// this function assumes that:
-// - `secret_key` is not null
-// otherwise it will return null.
-RawKeyStore keystore_init(RawFixed32Array secret_key);
-
-// Create a new [`KeyStore`].
-//
-// See [`KeyStore::new`] for full docs.
-RawKeyStore keystore_new(void);
-
-// Get the KeyStore Public Key as `Fixed32Array`.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-OperationStatus keystore_public_key(RawKeyStore ks, RawMutFixed32Array out);
-
-// Restore a `KeyStore` from a [`Mnemonic`] Paper Backup.
-//
-// see [`KeyStore::restore`] for full docs.
-// ### Safety
-// this function assumes that:
-// - `paper_key` is not null and a valid c string.
-RawKeyStore keystore_restore(const char *paper_key);
-
-// Get the KeyStore Secret Key as `Fixed32Array`.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-OperationStatus keystore_secret_key(RawKeyStore ks, RawMutFixed32Array out);
-
-// Get the KeyStore Seed as `Fixed32Array`.
-//
-// ### Safety
-// this function assumes that:
-// - `ks` is not null pointer to the `KeyStore`.
-OperationStatus keystore_seed(RawKeyStore ks, RawMutFixed32Array out);
-
-// Calculate SHA256 Hash of the provided file path.
-//
-// ### Safety
-// this function assumes that:
-// - `file_path` is not null pointer.
-// - `out` is not null pointer.
-OperationStatus keystore_sha256_hash(const char *file_path, RawMutFixed32Array out);
-
-// Free (Drop) a string value allocated by Rust.
-// ### Safety
-// this assumes that the given pointer is not null.
-void keystore_string_free(const char *ptr);
-
-// Verifies the signature of the message using the given `PublicKey`.
-//
-// ### Safety
-// this function assumes that:
-// - `thier_public` is not null pointer to the fixed size 32 bytes array.
-// - `message` is not null pointer and valid bytes buffer.
-// - `signature` is not null pointer to the fixed size 64 bytes array.
-OperationStatus keystore_verify_signature(RawFixed32Array thier_public,
-                                          RawSharedBuffer message,
-                                          RawFixed64Array signature);
+} // extern "C"

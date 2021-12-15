@@ -16,33 +16,31 @@ use zeroize::Zeroize;
 
 pub const AGREEMENT_LENGTH: usize = 32;
 pub const SEED_LENGTH: usize = 32;
-pub const PRIVATE_KEY_LENGTH: usize = 32;
+pub const SECRET_KEY_LENGTH: usize = 32;
 pub const PUBLIC_KEY_LENGTH: usize = 32;
 pub const SIGNATURE_LENGTH: usize = 64;
 
 mod errors;
 pub mod util;
-pub use errors::KeyStoreError;
-mod buffer;
-pub use buffer::SharedBuffer;
+pub use errors::KeyPairError;
 
-/// A Simple KeyStore that holds Keypair ([`PublicKey`], [`SecretKey`]).
+/// A Simple KeyPair that holds Keypair ([`PublicKey`], [`SecretKey`]).
 /// Also it holds the `Seed` used to generate the [`SecretKey`]
-pub struct KeyStore {
+pub struct KeyPair {
     pk: PublicKey,
     sk: SecretKey,
     seed: Option<[u8; SEED_LENGTH]>,
 }
 
-impl KeyStore {
-    /// Create a new `KeyStore`.
+impl KeyPair {
+    /// Create a new `KeyPair`.
     /// ### Note
-    /// After creating a new `KeyStore` you should call [`KeyStore::secret_key`] to get your [`SecretKey`]
-    /// and [`KeyStore::seed`] to get the `Seed` used in creating that private keys.
-    /// Those two `[u8; u32]` arrays should be stored securly in the device [`iOS KeyChain`][1] or [`Android KeyStore`][2].
+    /// After creating a new `KeyPair` you should call [`KeyPair::secret_key`] to get your [`SecretKey`]
+    /// and [`KeyPair::seed`] to get the `Seed` used in creating that private keys.
+    /// Those two `[u8; u32]` arrays should be stored securly in the device [`iOS KeyChain`][1] or [`Android KeyPair`][2].
     ///
     /// [1]: https://developer.apple.com/documentation/security/keychain_services
-    /// [2]: https://developer.android.com/training/articles/keystore.html
+    /// [2]: https://developer.android.com/training/articles/KeyPair.html
     pub fn new() -> Self {
         let mut seed = [0u8; SEED_LENGTH];
         let mut rnd = OsRng::default();
@@ -58,10 +56,10 @@ impl KeyStore {
         ks
     }
 
-    /// Init the `KeyStore` with existing SecretKey Bytes.
+    /// Init the `KeyPair` with existing SecretKey Bytes.
     /// ### Note
-    /// The created `KeyStore` dose not contains any seed.
-    pub fn init(mut secret_key: [u8; PRIVATE_KEY_LENGTH]) -> Self {
+    /// The created `KeyPair` dose not contains any seed.
+    pub fn init(mut secret_key: [u8; SECRET_KEY_LENGTH]) -> Self {
         let sk = SecretKey::from(secret_key); // copy
         let pk = PublicKey::from(&sk);
         // so we zeroize the last copy here before dropping it.
@@ -75,14 +73,14 @@ impl KeyStore {
     }
 
     /// Get your [`SecretKey`] as bytes.
-    pub fn secret_key(&self) -> [u8; PRIVATE_KEY_LENGTH] {
+    pub fn secret_key(&self) -> [u8; SECRET_KEY_LENGTH] {
         self.sk.to_bytes()
     }
 
     /// Get your `Seed` as bytes (if any).
     ///
     /// ### Note
-    /// Only Avaiable for a newly created `KeyStore`.
+    /// Only Avaiable for a newly created `KeyPair`.
     pub fn seed(&self) -> Option<[u8; SEED_LENGTH]> {
         self.seed
     }
@@ -91,27 +89,38 @@ impl KeyStore {
     ///
     /// if this a newly created `KeyStroe` you could pass `None` since it will use the current seed.
     /// it will return Error if both the current seed and the provided one is both `None`.
-    pub fn backup(&self, seed: Option<[u8; SEED_LENGTH]>) -> Result<String, KeyStoreError> {
-        let seed = self.seed.or(seed).ok_or(KeyStoreError::EmptySeed)?;
+    pub fn backup(&self, seed: Option<[u8; SEED_LENGTH]>) -> Result<String, KeyPairError> {
+        let seed = self.seed.or(seed).ok_or(KeyPairError::EmptySeed)?;
         let mnemonic = Mnemonic::from_entropy(&seed, Language::English).map_err(|_| {
-            KeyStoreError::Bip39Error(bip39::ErrorKind::InvalidEntropyLength(
+            KeyPairError::Bip39Error(bip39::ErrorKind::InvalidEntropyLength(
                 32,
-                MnemonicType::Words12,
+                MnemonicType::Words24,
             ))
         })?;
         Ok(mnemonic.to_string())
     }
 
-    /// Restore a `KeyStore` from a [`Mnemonic`] Paper Backup.
+    /// Check if the provided [`Mnemonic`] words is valid.
+    pub fn is_valid_mnemonic(phrase: &str) -> bool {
+        Mnemonic::validate(phrase, Language::English).is_ok()
+    }
+
+    /// Restore a `KeyPair` from a [`Mnemonic`] Paper Backup.
     ///
-    /// The new `KeyStore` will also contian the `Seed` used to create the [`SecretKey`].
-    /// See [`KeyStore::new`] for the following steps after creating a new KeyStore.
-    pub fn restore(paper_key: String) -> Result<Self, KeyStoreError> {
+    /// The new `KeyPair` will also contian the `Seed` used to create the [`SecretKey`].
+    /// See [`KeyPair::new`] for the following steps after creating a new KeyPair.
+    pub fn restore(paper_key: String) -> Result<Self, KeyPairError> {
         let mnemonic = Mnemonic::from_phrase(&paper_key, Language::English)
-            .map_err(|_| KeyStoreError::Bip39Error(bip39::ErrorKind::InvalidWord))?;
+            .map_err(|_| KeyPairError::Bip39Error(bip39::ErrorKind::InvalidWord))?;
         let entropy = mnemonic.entropy();
+        // check that the entropy is `SEED_LENGTH` bytes long
+        if entropy.len() != SEED_LENGTH {
+            return Err(KeyPairError::Bip39Error(
+                bip39::ErrorKind::InvalidEntropyLength(SEED_LENGTH, MnemonicType::Words24),
+            ));
+        }
         let mut seed = [0u8; SEED_LENGTH];
-        seed.copy_from_slice(&entropy);
+        seed.copy_from_slice(entropy);
         let sk = SecretKey::from(seed);
         let pk = PublicKey::from(&sk);
         let ks = Self {
@@ -130,14 +139,14 @@ impl KeyStore {
         shared_secret.to_bytes()
     }
 
-    pub fn encrypt<B: Buffer>(&self, data: &mut B) -> Result<(), KeyStoreError> {
+    pub fn encrypt<B: Buffer>(&self, data: &mut B) -> Result<(), KeyPairError> {
         let mut sk = self.sk.to_bytes();
         self.encrypt_with(sk, data)?;
         sk.zeroize();
         Ok(())
     }
 
-    pub fn decrypt<B: Buffer>(&self, data: &mut B) -> Result<(), KeyStoreError> {
+    pub fn decrypt<B: Buffer>(&self, data: &mut B) -> Result<(), KeyPairError> {
         let mut sk = self.sk.to_bytes();
         self.decrypt_with(sk, data)?;
         sk.zeroize();
@@ -146,9 +155,9 @@ impl KeyStore {
 
     pub fn encrypt_with<B: Buffer>(
         &self,
-        mut sk: [u8; PRIVATE_KEY_LENGTH],
+        mut sk: [u8; SECRET_KEY_LENGTH],
         data: &mut B,
-    ) -> Result<(), KeyStoreError> {
+    ) -> Result<(), KeyPairError> {
         let mut rnd = OsRng::default();
         let mut nonce = [0u8; 12];
         rnd.fill(&mut nonce);
@@ -160,12 +169,12 @@ impl KeyStore {
 
     pub fn decrypt_with<B: Buffer>(
         &self,
-        mut sk: [u8; PRIVATE_KEY_LENGTH],
+        mut sk: [u8; SECRET_KEY_LENGTH],
         data: &mut B,
-    ) -> Result<(), KeyStoreError> {
+    ) -> Result<(), KeyPairError> {
         const NONCE_LEN: usize = 12;
         if data.len() < NONCE_LEN {
-            return Err(KeyStoreError::AeadError(aead::Error));
+            return Err(KeyPairError::AeadError(aead::Error));
         }
         let mut nonce = [0u8; NONCE_LEN];
         let other = data.as_ref().iter().rev().take(NONCE_LEN);
@@ -264,19 +273,19 @@ impl KeyStore {
     }
 }
 
-impl Default for KeyStore {
+impl Default for KeyPair {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Drop for KeyStore {
+impl Drop for KeyPair {
     fn drop(&mut self) {
         self.seed.zeroize();
     }
 }
 
-impl From<[u8; 32]> for KeyStore {
+impl From<[u8; 32]> for KeyPair {
     fn from(mut sk: [u8; 32]) -> Self {
         let ks = Self::init(sk);
         sk.zeroize();
@@ -284,29 +293,21 @@ impl From<[u8; 32]> for KeyStore {
     }
 }
 
-impl TryFrom<String> for KeyStore {
-    type Error = KeyStoreError;
+impl TryFrom<String> for KeyPair {
+    type Error = KeyPairError;
     fn try_from(paper_key: String) -> Result<Self, Self::Error> {
         Self::restore(paper_key)
     }
 }
 
-fn decrypt_in_place<B: Buffer>(
-    key: &[u8],
-    nonce: &[u8],
-    data: &mut B,
-) -> Result<(), KeyStoreError> {
+fn decrypt_in_place<B: Buffer>(key: &[u8], nonce: &[u8], data: &mut B) -> Result<(), KeyPairError> {
     let cipher = ChaCha20Poly1305::new(key.into());
     cipher
         .decrypt_in_place(nonce.into(), b"", data)
         .map_err(Into::into)
 }
 
-fn encrypt_in_place<B: Buffer>(
-    key: &[u8],
-    nonce: &[u8],
-    data: &mut B,
-) -> Result<(), KeyStoreError> {
+fn encrypt_in_place<B: Buffer>(key: &[u8], nonce: &[u8], data: &mut B) -> Result<(), KeyPairError> {
     let cipher = ChaCha20Poly1305::new(key.into());
     cipher
         .encrypt_in_place(nonce.into(), b"", data)
@@ -318,7 +319,7 @@ mod tests {
     use super::*;
     #[test]
     fn it_works() {
-        let ks = KeyStore::new();
+        let ks = KeyPair::new();
         let mut data = Vec::with_capacity((8 + 12) * 4);
         data.extend_from_slice(b"Owlchat");
         ks.encrypt(&mut data).expect("ecnrypt");
@@ -329,22 +330,22 @@ mod tests {
     }
 
     #[test]
-    fn keystore_init() {
-        let ks = KeyStore::new();
+    fn keypair_init() {
+        let ks = KeyPair::new();
         let mut data = Vec::with_capacity((8 + 12) * 4);
         data.extend_from_slice(b"Owlchat");
         let original = b"Owlchat".to_vec();
         ks.encrypt(&mut data).unwrap();
         let sk = ks.secret_key();
         drop(ks);
-        let ks = KeyStore::init(sk);
+        let ks = KeyPair::init(sk);
         ks.decrypt(&mut data).unwrap();
         assert_eq!(data, original);
     }
     #[test]
     fn same_shared_secret() {
-        let alice_ks = KeyStore::new();
-        let bob_ks = KeyStore::new();
+        let alice_ks = KeyPair::new();
+        let bob_ks = KeyPair::new();
 
         let alice_sk = alice_ks.dh(bob_ks.public_key());
         let bob_sk = bob_ks.dh(alice_ks.public_key());
@@ -353,8 +354,8 @@ mod tests {
 
     #[test]
     fn funny_conversation() {
-        let alice_ks = KeyStore::new();
-        let bob_ks = KeyStore::new();
+        let alice_ks = KeyPair::new();
+        let bob_ks = KeyPair::new();
 
         let alice_sk = alice_ks.dh(bob_ks.public_key());
         let bob_sk = bob_ks.dh(alice_ks.public_key());
@@ -376,7 +377,7 @@ mod tests {
 
     #[test]
     fn backup_and_restore() {
-        let ks = KeyStore::new();
+        let ks = KeyPair::new();
         let paper_key = ks.backup(None).unwrap();
         println!("Backup Paper Key: {}", paper_key);
         let mut data = Vec::with_capacity((8 + 12) * 4);
@@ -385,7 +386,7 @@ mod tests {
         ks.encrypt(&mut data).unwrap();
         drop(ks);
 
-        let ks = KeyStore::restore(paper_key).unwrap();
+        let ks = KeyPair::restore(paper_key).unwrap();
         ks.decrypt(&mut data).unwrap();
         assert_eq!(original, data);
     }
@@ -418,8 +419,8 @@ mod tests {
             0xc4, 0x77, 0xe6, 0x29,
         ];
 
-        let alice_key_pair = KeyStore::from(alice_private);
-        let bob_key_pair = KeyStore::from(bob_private);
+        let alice_key_pair = KeyPair::from(alice_private);
+        let bob_key_pair = KeyPair::from(bob_private);
 
         assert_eq!(alice_public, alice_key_pair.public_key());
         assert_eq!(bob_public, bob_key_pair.public_key());
@@ -433,8 +434,8 @@ mod tests {
     #[test]
     fn random_agreements() {
         for _ in 0..50 {
-            let alice_key_pair = KeyStore::new();
-            let bob_key_pair = KeyStore::new();
+            let alice_key_pair = KeyPair::new();
+            let bob_key_pair = KeyPair::new();
 
             let alice_computed_secret = alice_key_pair.dh(bob_key_pair.public_key());
             let bob_computed_secret = bob_key_pair.dh(alice_key_pair.public_key());
@@ -445,7 +446,7 @@ mod tests {
 
     #[test]
     fn signature() {
-        let alice_identity_private: [u8; PRIVATE_KEY_LENGTH] = [
+        let alice_identity_private: [u8; SECRET_KEY_LENGTH] = [
             0xc0, 0x97, 0x24, 0x84, 0x12, 0xe5, 0x8b, 0xf0, 0x5d, 0xf4, 0x87, 0x96, 0x82, 0x05,
             0x13, 0x27, 0x94, 0x17, 0x8e, 0x36, 0x76, 0x37, 0xf5, 0x81, 0x8f, 0x81, 0xe0, 0xe6,
             0xce, 0x73, 0xe8, 0x65,
@@ -468,12 +469,12 @@ mod tests {
             0xce, 0xf0, 0x47, 0xbd, 0x60, 0xb8, 0x6e, 0x88,
         ];
 
-        let alice_identity_key_pair = KeyStore::from(alice_identity_private);
+        let alice_identity_key_pair = KeyPair::from(alice_identity_private);
 
         assert_eq!(alice_identity_public, alice_identity_key_pair.public_key());
 
         assert!(
-            KeyStore::verify_signature(
+            KeyPair::verify_signature(
                 alice_identity_public,
                 &alice_ephemeral_public,
                 alice_signature
@@ -487,7 +488,7 @@ mod tests {
             alice_signature_copy[i] ^= 0x01u8;
 
             assert!(
-                !KeyStore::verify_signature(
+                !KeyPair::verify_signature(
                     alice_identity_public,
                     &alice_ephemeral_public,
                     alice_signature_copy
@@ -503,10 +504,10 @@ mod tests {
         for _ in 0..50 {
             let mut message = [0u8; 64];
             rng.fill(&mut message);
-            let key_pair = KeyStore::new();
+            let key_pair = KeyPair::new();
             let signature = key_pair.calculate_signature(&message);
             assert!(
-                KeyStore::verify_signature(key_pair.public_key(), &message, signature),
+                KeyPair::verify_signature(key_pair.public_key(), &message, signature),
                 "signature check failed"
             );
         }

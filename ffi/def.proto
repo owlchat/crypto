@@ -1,0 +1,88 @@
+syntax = "proto3";
+package owlchat;
+option cc_enable_arenas = false;
+
+import "google/protobuf/empty.proto";
+
+message KeyPair {
+  bytes public_key = 1;
+  bytes secret_key = 2;
+  bytes seed = 3;
+}
+
+message InitKeyPair {
+  bytes secret_key = 1;
+}
+
+message RestoreKeyPair {
+  string paper_key = 1;
+}
+
+message BackupKeyPair {
+  bytes maybe_seed = 1;
+}
+
+message ValidateMnemonic {
+  string phrase = 1;
+}
+
+message Encrypt {
+  bytes plaintext = 1;
+}
+
+message Decrypt {
+  bytes ciphertext = 1;
+}
+
+message Sign {
+  bytes msg = 1;
+}
+
+message Verify {
+  bytes public_key = 1;
+  bytes msg = 2;
+  bytes sig = 3;
+}
+
+message DiffieHellmanKeyExchange {
+  bytes their_public_key = 1;
+}
+
+message Request {
+  oneof body {
+    google.protobuf.Empty generate_key_pair = 1;
+    InitKeyPair init_key_pair = 2;
+    RestoreKeyPair restore_key_pair = 3;
+    BackupKeyPair backup_key_pair = 4;
+    ValidateMnemonic validate_mnemonic = 5;
+    Encrypt encrypt = 6;
+    Decrypt decrypt = 7;
+    Sign sign = 8;
+    Verify verify = 9;
+    DiffieHellmanKeyExchange diffie_hellman_key_exchange = 10;
+  }
+}
+
+message Response {
+  enum Error {
+    UNKNOWN = 0;
+    MISSING_REQUEST_BODY = 1;
+    INVALID_PUBLIC_KEY = 2;
+    INVALID_SECRET_KEY = 3;
+    INVALID_SIGNATURE = 4;
+    INVALID_SEED = 5;
+    INVALID_PAPER_KEY = 6;
+    NOT_INITIALIZED = 7;
+  }
+  oneof body {
+    Error error = 1;
+    KeyPair key_pair = 2;
+    string mnemonic = 3;
+    bool valid_mnemonic = 4;
+    bytes encrypted_message = 5;
+    bytes decrypted_message = 6;
+    bytes signature = 7;
+    bool valid_signature = 8;
+    bytes shared_secret = 9;
+  }
+}
