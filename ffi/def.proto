@@ -48,6 +48,14 @@ message DiffieHellmanKeyExchange {
   bytes their_public_key = 1;
 }
 
+message HashSha256 {
+  bytes input = 1;
+}
+
+message HashFileSha256 {
+  string path = 1;
+}
+
 message Request {
   oneof body {
     google.protobuf.Empty generate_key_pair = 1;
@@ -60,19 +68,25 @@ message Request {
     Sign sign = 8;
     Verify verify = 9;
     DiffieHellmanKeyExchange diffie_hellman_key_exchange = 10;
+    HashSha256 hash_sha256 = 11;
+    HashFileSha256 hash_file_sha256 = 12;
   }
 }
 
 message Response {
-  enum Error {
-    UNKNOWN = 0;
-    MISSING_REQUEST_BODY = 1;
-    INVALID_PUBLIC_KEY = 2;
-    INVALID_SECRET_KEY = 3;
-    INVALID_SIGNATURE = 4;
-    INVALID_SEED = 5;
-    INVALID_PAPER_KEY = 6;
-    NOT_INITIALIZED = 7;
+  message Error {
+    enum Kind {
+      UNKNOWN = 0;
+      MISSING_REQUEST_BODY = 1;
+      INVALID_PUBLIC_KEY = 2;
+      INVALID_SECRET_KEY = 3;
+      INVALID_SIGNATURE = 4;
+      INVALID_SEED = 5;
+      INVALID_PAPER_KEY = 6;
+      NOT_INITIALIZED = 7;
+    }
+    string message = 1;
+    Kind kind = 2;
   }
   oneof body {
     Error error = 1;
@@ -84,5 +98,6 @@ message Response {
     bytes signature = 7;
     bool valid_signature = 8;
     bytes shared_secret = 9;
+    bytes sha256_hash = 10;
   }
 }

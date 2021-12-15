@@ -1,5 +1,7 @@
 use once_cell::sync::OnceCell;
 
+use crate::pb::response::{self, error};
+
 pub mod pb;
 
 static mut KEYPAIR: OnceCell<crypto::KeyPair> = OnceCell::new();
@@ -192,6 +194,22 @@ pub unsafe extern "C" fn owlchat_crypto_free_buffer(buffer: Buffer) {
     Box::from_raw(s.as_mut_ptr());
 }
 
+macro_rules! keypair {
+    () => {
+        match KEYPAIR.get() {
+            Some(v) => v,
+            None => {
+                return pb::Response {
+                    body: Some(ResponseBody::Error(response::Error {
+                        kind: error::Kind::NotInitialized.into(),
+                        message: "Keypair not initialized yet!".to_string(),
+                    })),
+                }
+            }
+        }
+    };
+}
+
 unsafe fn handle_request(req: pb::Request) -> pb::Response {
     use pb::request::Body as RequestBody;
     use pb::response::Body as ResponseBody;
@@ -199,9 +217,10 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
         Some(body) => body,
         None => {
             return pb::Response {
-                body: Some(ResponseBody::Error(
-                    pb::response::Error::MissingRequestBody.into(),
-                )),
+                body: Some(ResponseBody::Error(response::Error {
+                    kind: error::Kind::MissingRequestBody.into(),
+                    message: "No request body found".to_string(),
+                })),
             }
         }
     };
@@ -253,11 +272,12 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
         RequestBody::RestoreKeyPair(v) => {
             let keypair = match crypto::KeyPair::restore(v.paper_key) {
                 Ok(v) => v,
-                Err(_) => {
+                Err(e) => {
                     return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::InvalidPaperKey.into(),
-                        )),
+                        body: Some(ResponseBody::Error(response::Error {
+                            kind: error::Kind::InvalidPaperKey.into(),
+                            message: e.to_string(),
+                        })),
                     }
                 }
             };
@@ -272,21 +292,15 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
         }
         RequestBody::BackupKeyPair(v) => {
             let seed = seed_from(&v.maybe_seed).ok();
-            let keypair = match KEYPAIR.get() {
-                Some(v) => v,
-                None => {
-                    return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::NotInitialized.into(),
-                        )),
-                    }
-                }
-            };
+            let keypair = keypair!();
             let paper_key = match keypair.backup(seed) {
                 Ok(v) => v,
-                Err(_) => {
+                Err(e) => {
                     return pb::Response {
-                        body: Some(ResponseBody::Error(pb::response::Error::InvalidSeed.into())),
+                        body: Some(ResponseBody::Error(response::Error {
+                            kind: error::Kind::InvalidSeed.into(),
+                            message: e.to_string(),
+                        })),
                     }
                 }
             };
@@ -294,65 +308,44 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
         }
         RequestBody::Encrypt(mut v) => {
             let msg = &mut v.plaintext;
-            let keypair = match KEYPAIR.get() {
-                Some(v) => v,
-                None => {
-                    return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::NotInitialized.into(),
-                        )),
-                    }
-                }
-            };
+            let keypair = keypair!();
             match keypair.encrypt(msg) {
                 Ok(_) => {
                     // the plaintext now is the ciphertext
                     let ciphertext = v.plaintext;
                     ResponseBody::EncryptedMessage(ciphertext)
                 }
-                Err(_) => {
+                Err(e) => {
                     return pb::Response {
-                        body: Some(ResponseBody::Error(pb::response::Error::Unknown.into())),
+                        body: Some(ResponseBody::Error(response::Error {
+                            kind: error::Kind::Unknown.into(),
+                            message: e.to_string(),
+                        })),
                     }
                 }
             }
         }
         RequestBody::Decrypt(mut v) => {
             let msg = &mut v.ciphertext;
-            let keypair = match KEYPAIR.get() {
-                Some(v) => v,
-                None => {
-                    return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::NotInitialized.into(),
-                        )),
-                    }
-                }
-            };
+            let keypair = keypair!();
             match keypair.decrypt(msg) {
                 Ok(_) => {
                     // the ciphertext now is the plaintext
                     let plaintext = v.ciphertext;
                     ResponseBody::DecryptedMessage(plaintext)
                 }
-                Err(_) => {
+                Err(e) => {
                     return pb::Response {
-                        body: Some(ResponseBody::Error(pb::response::Error::Unknown.into())),
+                        body: Some(ResponseBody::Error(response::Error {
+                            kind: error::Kind::Unknown.into(),
+                            message: e.to_string(),
+                        })),
                     }
                 }
             }
         }
         RequestBody::Sign(v) => {
-            let keypair = match KEYPAIR.get() {
-                Some(v) => v,
-                None => {
-                    return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::NotInitialized.into(),
-                        )),
-                    }
-                }
-            };
+            let keypair = keypair!();
             let signature = keypair.calculate_signature(&v.msg);
             ResponseBody::Signature(signature.to_vec())
         }
@@ -361,18 +354,22 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
                 Ok(v) => v,
                 Err(e) => return e,
             };
-            let keypair = match KEYPAIR.get() {
-                Some(v) => v,
-                None => {
-                    return pb::Response {
-                        body: Some(ResponseBody::Error(
-                            pb::response::Error::NotInitialized.into(),
-                        )),
-                    }
-                }
-            };
+            let keypair = keypair!();
             let shared_secret = keypair.dh(their_public_key);
             ResponseBody::SharedSecret(shared_secret.to_vec())
+        }
+        RequestBody::HashSha256(v) => {
+            let hash = crypto::util::sha256_hash_bytes(&v.input);
+            ResponseBody::Sha256Hash(hash.to_vec())
+        }
+        RequestBody::HashFileSha256(v) => {
+            match crypto::util::sha256_hash_file(std::path::PathBuf::from(&v.path)) {
+                Ok(hash) => ResponseBody::Sha256Hash(hash.to_vec()),
+                Err(e) => ResponseBody::Error(response::Error {
+                    kind: error::Kind::Unknown.into(),
+                    message: e.to_string(),
+                }),
+            }
         }
     };
     pb::Response {
@@ -384,9 +381,10 @@ fn public_key_from(v: &[u8]) -> Result<[u8; crypto::PUBLIC_KEY_LENGTH], pb::Resp
     // check the length of the public key
     if v.len() != crypto::PUBLIC_KEY_LENGTH {
         return Err(pb::Response {
-            body: Some(pb::response::Body::Error(
-                pb::response::Error::InvalidPublicKey.into(),
-            )),
+            body: Some(response::Body::Error(response::Error {
+                kind: error::Kind::InvalidPublicKey.into(),
+                message: "Invalid public key length".to_string(),
+            })),
         });
     }
     let mut res = [0u8; crypto::PUBLIC_KEY_LENGTH];
@@ -398,9 +396,10 @@ fn secret_key_from(v: &[u8]) -> Result<[u8; crypto::SECRET_KEY_LENGTH], pb::Resp
     // check the length of the secret key
     if v.len() != crypto::SECRET_KEY_LENGTH {
         return Err(pb::Response {
-            body: Some(pb::response::Body::Error(
-                pb::response::Error::InvalidSecretKey.into(),
-            )),
+            body: Some(pb::response::Body::Error(response::Error {
+                kind: error::Kind::InvalidSecretKey.into(),
+                message: "Invalid secret key length".to_string(),
+            })),
         });
     }
     let mut res = [0u8; crypto::SECRET_KEY_LENGTH];
@@ -412,9 +411,10 @@ fn seed_from(v: &[u8]) -> Result<[u8; crypto::SEED_LENGTH], pb::Response> {
     // check the length of the seed
     if v.len() != crypto::SEED_LENGTH {
         return Err(pb::Response {
-            body: Some(pb::response::Body::Error(
-                pb::response::Error::InvalidSeed.into(),
-            )),
+            body: Some(pb::response::Body::Error(response::Error {
+                kind: error::Kind::InvalidSeed.into(),
+                message: "Invalid seed length".to_string(),
+            })),
         });
     }
     let mut res = [0u8; crypto::SEED_LENGTH];
@@ -426,9 +426,10 @@ fn signature_from(v: &[u8]) -> Result<[u8; crypto::SIGNATURE_LENGTH], pb::Respon
     // check the length of the signature
     if v.len() != crypto::SIGNATURE_LENGTH {
         return Err(pb::Response {
-            body: Some(pb::response::Body::Error(
-                pb::response::Error::InvalidSignature.into(),
-            )),
+            body: Some(pb::response::Body::Error(response::Error {
+                kind: error::Kind::InvalidSignature.into(),
+                message: "Invalid signature length".to_string(),
+            })),
         });
     }
     let mut res = [0u8; crypto::SIGNATURE_LENGTH];

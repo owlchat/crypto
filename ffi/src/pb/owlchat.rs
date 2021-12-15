@@ -57,8 +57,21 @@ pub struct DiffieHellmanKeyExchange {
     pub their_public_key: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HashSha256 {
+    #[prost(bytes = "vec", tag = "1")]
+    pub input: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HashFileSha256 {
+    #[prost(string, tag = "1")]
+    pub path: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Request {
-    #[prost(oneof = "request::Body", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
+    #[prost(
+        oneof = "request::Body",
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
+    )]
     pub body: ::core::option::Option<request::Body>,
 }
 /// Nested message and enum types in `Request`.
@@ -85,31 +98,47 @@ pub mod request {
         Verify(super::Verify),
         #[prost(message, tag = "10")]
         DiffieHellmanKeyExchange(super::DiffieHellmanKeyExchange),
+        #[prost(message, tag = "11")]
+        HashSha256(super::HashSha256),
+        #[prost(message, tag = "12")]
+        HashFileSha256(super::HashFileSha256),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Response {
-    #[prost(oneof = "response::Body", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
+    #[prost(oneof = "response::Body", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
     pub body: ::core::option::Option<response::Body>,
 }
 /// Nested message and enum types in `Response`.
 pub mod response {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-    #[repr(i32)]
-    pub enum Error {
-        Unknown = 0,
-        MissingRequestBody = 1,
-        InvalidPublicKey = 2,
-        InvalidSecretKey = 3,
-        InvalidSignature = 4,
-        InvalidSeed = 5,
-        InvalidPaperKey = 6,
-        NotInitialized = 7,
+    #[derive(Clone, PartialEq, ::prost::Message)]
+    pub struct Error {
+        #[prost(string, tag = "1")]
+        pub message: ::prost::alloc::string::String,
+        #[prost(enumeration = "error::Kind", tag = "2")]
+        pub kind: i32,
+    }
+    /// Nested message and enum types in `Error`.
+    pub mod error {
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration,
+        )]
+        #[repr(i32)]
+        pub enum Kind {
+            Unknown = 0,
+            MissingRequestBody = 1,
+            InvalidPublicKey = 2,
+            InvalidSecretKey = 3,
+            InvalidSignature = 4,
+            InvalidSeed = 5,
+            InvalidPaperKey = 6,
+            NotInitialized = 7,
+        }
     }
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Body {
-        #[prost(enumeration = "Error", tag = "1")]
-        Error(i32),
+        #[prost(message, tag = "1")]
+        Error(Error),
         #[prost(message, tag = "2")]
         KeyPair(super::KeyPair),
         #[prost(string, tag = "3")]
@@ -126,5 +155,7 @@ pub mod response {
         ValidSignature(bool),
         #[prost(bytes, tag = "9")]
         SharedSecret(::prost::alloc::vec::Vec<u8>),
+        #[prost(bytes, tag = "10")]
+        Sha256Hash(::prost::alloc::vec::Vec<u8>),
     }
 }
