@@ -62,15 +62,15 @@ jobs:
 
       - name: Prepare Release
         run: |
-          mv target/universal/release/libowlchat_crypto.a target/release/libowlchat_crypto-universal-apple-ios.a
-          mv ffi/binding.h target/release/owlchat_crypto.h
+          mv target/universal/release/libowlchat_crypto.a target/libowlchat_crypto-universal-apple-ios.a
+          mv ffi/binding.h target/owlchat_crypto.h
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           prerelease: startsWith(github.ref, 'refs/tags/')
           files: |
-            target/release/libowlchat_crypto-universal-apple-ios.a
-            target/release/owlchat_crypto.h
+            target/libowlchat_crypto-universal-apple-ios.a
+            target/owlchat_crypto.h
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
