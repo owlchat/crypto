@@ -1,0 +1,52 @@
+name: owlchat_crypto
+description: Owlchat Crypto Primitives in Rust with FFI binding for Dart and others.
+version: 0.1.0
+homepage:
+
+environment:
+  sdk: ">=2.15.0 <3.0.0"
+  flutter: ">=2.5.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^1.1.2
+  protobuf: ^2.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^1.0.0
+  ffigen: ^4.1.2
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter.
+flutter:
+  # This section identifies this Flutter project as a plugin project.
+  # The 'pluginClass' and Android 'package' identifiers should not ordinarily
+  # be modified. They are used by the tooling to maintain consistency when
+  # adding or updating assets for this project.
+  plugin:
+    platforms:
+      android:
+        package: chat.owl.owlchat_crypto
+        pluginClass: OwlchatCryptoPlugin
+      ios:
+        pluginClass: OwlchatCryptoPlugin
+
+ffigen:
+  output: "lib/ffi.dart"
+  name: "RawOwlchatCrypto"
+  description: "Owlchat Crypto Binding"
+  sort: true
+  comments:
+    style: any
+    length: full
+  compiler-opts:
+    - "-DDART"
+  headers:
+    entry-points:
+      - "ffi/binding.h"
+    include-directives:
+      - "**binding.h"
