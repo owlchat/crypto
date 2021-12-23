@@ -247,6 +247,9 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
             let seed = keypair.seed().map(|v| v.to_vec()).unwrap_or_default();
+            // remove the old value and drop it.
+            let _ = KEYPAIR.take();
+            // then sets it to this new one.
             let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
@@ -262,6 +265,9 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             let keypair = crypto::KeyPair::init(secret_key);
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
+            // remove the old value and drop it.
+            let _ = KEYPAIR.take();
+            // then sets it to this new one.
             let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
@@ -283,11 +289,15 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             };
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
+            let seed = keypair.seed().map(|v| v.to_vec()).unwrap_or_default();
+            // remove the old value and drop it.
+            let _ = KEYPAIR.take();
+            // then sets it to this new one.
             let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
                 secret_key,
-                seed: vec![],
+                seed,
             })
         }
         RequestBody::BackupKeyPair(v) => {

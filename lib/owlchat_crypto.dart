@@ -24,14 +24,70 @@ class OwlchatCrypto {
     _raw.owlchat_crypto_init();
   }
 
-  Future<KeyPair> generateKeyPair() async {
+  /// Initializes the [OwlchatCrypto] library with the given [SecretKey].
+  ///
+  /// You can access the [KeyPair] of the [OwlchatCrypto] instance using [currentKeyPair].
+  Future<KeyPair> withSecretKey(SecretKey secretKey) async {
+    final req = Request(
+      initKeyPair: InitKeyPair(
+        secretKey: secretKey.expose().cast(),
+      ),
+    );
+    final res = await _dispatch(req);
+    final keypair = res.ensureKeyPair();
+    return KeyPair(
+      publicKey: PublicKey(Uint8List.fromList(keypair.publicKey)),
+      secretKey: SecretKey(Uint8List.fromList(keypair.secretKey)),
+    );
+  }
+
+  /// Regenrates an new [KeyPair] and replaces the current [KeyPair] with it.
+  Future<KeyPair> regenerateKeyPair() async {
     final req = Request(generateKeyPair: Empty());
     final res = await _dispatch(req);
     final keypair = res.ensureKeyPair();
     final publicKey = PublicKey(Uint8List.fromList(keypair.publicKey));
     final secretKey = SecretKey(Uint8List.fromList(keypair.secretKey));
     final seed = Seed(Uint8List.fromList(keypair.seed));
-    return KeyPair(publicKey: publicKey, secretKey: secretKey, seed: seed);
+    return KeyPair(
+      publicKey: publicKey,
+      secretKey: secretKey,
+      seed: seed,
+    );
+  }
+
+  /// Resets the [KeyPair] of the [OwlchatCrypto] using the paper key (seed phrase).
+  Future<KeyPair> restoreKeyPair(String paperKey) async {
+    final req = Request(
+      restoreKeyPair: RestoreKeyPair(
+        paperKey: paperKey,
+      ),
+    );
+    final res = await _dispatch(req);
+    final keypair = res.ensureKeyPair();
+    final publicKey = PublicKey(Uint8List.fromList(keypair.publicKey));
+    final secretKey = SecretKey(Uint8List.fromList(keypair.secretKey));
+    final maybeSeed = keypair.seed.isNotEmpty
+        ? Seed(
+            Uint8List.fromList(keypair.seed),
+          )
+        : null;
+    return KeyPair(
+      publicKey: publicKey,
+      secretKey: secretKey,
+      seed: maybeSeed,
+    );
+  }
+
+  /// Backup the current [KeyPair] to Mnemonic Paperkey (Seed phrase).
+  Future<String> backupKeyPair({Seed? seed}) async {
+    final req = Request(
+      backupKeyPair: BackupKeyPair(
+        maybeSeed: seed?.expose().toList(growable: false),
+      ),
+    );
+    final res = await _dispatch(req);
+    return res.mnemonic;
   }
 
   /// Dispose everything, clears the current [OwlchatCrypto] instance.
@@ -118,6 +174,19 @@ class PublicKey extends Key {
     final bytes = base64.decode(b64);
     return PublicKey(bytes);
   }
+
+  // override hashCode and ==
+  @override
+  int get hashCode => _inner.hashCode;
+
+  @override
+  bool operator ==(Object other) {
+    if (other is PublicKey) {
+      return _inner == other._inner;
+    } else {
+      return false;
+    }
+  }
 }
 
 class SecretKey extends Key {
@@ -125,6 +194,18 @@ class SecretKey extends Key {
   factory SecretKey.fromBase64(String b64) {
     final bytes = base64.decode(b64);
     return SecretKey(bytes);
+  }
+
+  // override hashCode and ==
+  @override
+  int get hashCode => _inner.hashCode;
+  @override
+  bool operator ==(Object other) {
+    if (other is SecretKey) {
+      return _inner == other._inner;
+    } else {
+      return false;
+    }
   }
 }
 
@@ -134,6 +215,18 @@ class SharedSecret extends Key {
     final bytes = base64.decode(b64);
     return SharedSecret(bytes);
   }
+
+  // override hashCode and ==
+  @override
+  int get hashCode => _inner.hashCode;
+  @override
+  bool operator ==(Object other) {
+    if (other is SharedSecret) {
+      return _inner == other._inner;
+    } else {
+      return false;
+    }
+  }
 }
 
 class Seed extends Key {
@@ -142,6 +235,18 @@ class Seed extends Key {
   factory Seed.fromBase64(String b64) {
     final bytes = base64.decode(b64);
     return Seed(bytes);
+  }
+
+  // override hashCode and ==
+  @override
+  int get hashCode => _inner.hashCode;
+  @override
+  bool operator ==(Object other) {
+    if (other is Seed) {
+      return _inner == other._inner;
+    } else {
+      return false;
+    }
   }
 }
 

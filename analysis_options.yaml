@@ -6,4 +6,5 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - lib/ffi.dart
+    - lib/generated/*.dart
     - lib/generated/**/*.dart
