@@ -29,8 +29,8 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
+          toolchain: stable
+          override: false
           components: rustfmt
 
       - name: Cache Cargo

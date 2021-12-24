@@ -10,13 +10,13 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install Rust toolchain
         id: rust_toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
+          toolchain: stable
+          override: false
 
       - name: Cache Cargo
         uses: actions/cache@v2
