@@ -7,6 +7,7 @@
 
 import 'dart:core' as $core;
 
+import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'google/protobuf/empty.pb.dart' as $0;
@@ -43,6 +44,11 @@ class KeyPair extends $pb.GeneratedMessage {
             ? ''
             : 'seed',
         $pb.PbFieldType.OY)
+    ..aInt64(
+        4,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'rawPointer')
     ..hasRequiredFields = false;
 
   KeyPair._() : super();
@@ -50,6 +56,7 @@ class KeyPair extends $pb.GeneratedMessage {
     $core.List<$core.int>? publicKey,
     $core.List<$core.int>? secretKey,
     $core.List<$core.int>? seed,
+    $fixnum.Int64? rawPointer,
   }) {
     final _result = create();
     if (publicKey != null) {
@@ -60,6 +67,9 @@ class KeyPair extends $pb.GeneratedMessage {
     }
     if (seed != null) {
       _result.seed = seed;
+    }
+    if (rawPointer != null) {
+      _result.rawPointer = rawPointer;
     }
     return _result;
   }
@@ -124,6 +134,18 @@ class KeyPair extends $pb.GeneratedMessage {
   $core.bool hasSeed() => $_has(2);
   @$pb.TagNumber(3)
   void clearSeed() => clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get rawPointer => $_getI64(3);
+  @$pb.TagNumber(4)
+  set rawPointer($fixnum.Int64 v) {
+    $_setInt64(3, v);
+  }
+
+  @$pb.TagNumber(4)
+  $core.bool hasRawPointer() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRawPointer() => clearField(4);
 }
 
 class InitKeyPair extends $pb.GeneratedMessage {
@@ -411,15 +433,25 @@ class Encrypt extends $pb.GeneratedMessage {
             ? ''
             : 'plaintext',
         $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'secretKey',
+        $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   Encrypt._() : super();
   factory Encrypt({
     $core.List<$core.int>? plaintext,
+    $core.List<$core.int>? secretKey,
   }) {
     final _result = create();
     if (plaintext != null) {
       _result.plaintext = plaintext;
+    }
+    if (secretKey != null) {
+      _result.secretKey = secretKey;
     }
     return _result;
   }
@@ -460,6 +492,18 @@ class Encrypt extends $pb.GeneratedMessage {
   $core.bool hasPlaintext() => $_has(0);
   @$pb.TagNumber(1)
   void clearPlaintext() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get secretKey => $_getN(1);
+  @$pb.TagNumber(2)
+  set secretKey($core.List<$core.int> v) {
+    $_setBytes(1, v);
+  }
+
+  @$pb.TagNumber(2)
+  $core.bool hasSecretKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSecretKey() => clearField(2);
 }
 
 class Decrypt extends $pb.GeneratedMessage {
@@ -478,15 +522,25 @@ class Decrypt extends $pb.GeneratedMessage {
             ? ''
             : 'ciphertext',
         $pb.PbFieldType.OY)
+    ..a<$core.List<$core.int>>(
+        2,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'secretKey',
+        $pb.PbFieldType.OY)
     ..hasRequiredFields = false;
 
   Decrypt._() : super();
   factory Decrypt({
     $core.List<$core.int>? ciphertext,
+    $core.List<$core.int>? secretKey,
   }) {
     final _result = create();
     if (ciphertext != null) {
       _result.ciphertext = ciphertext;
+    }
+    if (secretKey != null) {
+      _result.secretKey = secretKey;
     }
     return _result;
   }
@@ -527,6 +581,18 @@ class Decrypt extends $pb.GeneratedMessage {
   $core.bool hasCiphertext() => $_has(0);
   @$pb.TagNumber(1)
   void clearCiphertext() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get secretKey => $_getN(1);
+  @$pb.TagNumber(2)
+  set secretKey($core.List<$core.int> v) {
+    $_setBytes(1, v);
+  }
+
+  @$pb.TagNumber(2)
+  $core.bool hasSecretKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSecretKey() => clearField(2);
 }
 
 class Sign extends $pb.GeneratedMessage {
@@ -912,6 +978,7 @@ class HashFileSha256 extends $pb.GeneratedMessage {
 }
 
 enum Request_Body {
+  currentKeyPair,
   generateKeyPair,
   initKeyPair,
   restoreKeyPair,
@@ -929,18 +996,19 @@ enum Request_Body {
 
 class Request extends $pb.GeneratedMessage {
   static const $core.Map<$core.int, Request_Body> _Request_BodyByTag = {
-    1: Request_Body.generateKeyPair,
-    2: Request_Body.initKeyPair,
-    3: Request_Body.restoreKeyPair,
-    4: Request_Body.backupKeyPair,
-    5: Request_Body.validateMnemonic,
-    6: Request_Body.encrypt,
-    7: Request_Body.decrypt,
-    8: Request_Body.sign,
-    9: Request_Body.verify,
-    10: Request_Body.diffieHellmanKeyExchange,
-    11: Request_Body.hashSha256,
-    12: Request_Body.hashFileSha256,
+    1: Request_Body.currentKeyPair,
+    2: Request_Body.generateKeyPair,
+    3: Request_Body.initKeyPair,
+    4: Request_Body.restoreKeyPair,
+    5: Request_Body.backupKeyPair,
+    6: Request_Body.validateMnemonic,
+    7: Request_Body.encrypt,
+    8: Request_Body.decrypt,
+    9: Request_Body.sign,
+    10: Request_Body.verify,
+    11: Request_Body.diffieHellmanKeyExchange,
+    12: Request_Body.hashSha256,
+    13: Request_Body.hashFileSha256,
     0: Request_Body.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -952,75 +1020,81 @@ class Request extends $pb.GeneratedMessage {
               ? ''
               : 'owlchat'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+    ..oo(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
     ..aOM<$0.Empty>(
         1,
+        const $core.bool.fromEnvironment('protobuf.omit_field_names')
+            ? ''
+            : 'currentKeyPair',
+        subBuilder: $0.Empty.create)
+    ..aOM<$0.Empty>(
+        2,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'generateKeyPair',
         subBuilder: $0.Empty.create)
     ..aOM<InitKeyPair>(
-        2,
+        3,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'initKeyPair',
         subBuilder: InitKeyPair.create)
     ..aOM<RestoreKeyPair>(
-        3,
+        4,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'restoreKeyPair',
         subBuilder: RestoreKeyPair.create)
     ..aOM<BackupKeyPair>(
-        4,
+        5,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'backupKeyPair',
         subBuilder: BackupKeyPair.create)
     ..aOM<ValidateMnemonic>(
-        5,
+        6,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'validateMnemonic',
         subBuilder: ValidateMnemonic.create)
     ..aOM<Encrypt>(
-        6,
+        7,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'encrypt',
         subBuilder: Encrypt.create)
     ..aOM<Decrypt>(
-        7,
+        8,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'decrypt',
         subBuilder: Decrypt.create)
     ..aOM<Sign>(
-        8,
+        9,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'sign',
         subBuilder: Sign.create)
     ..aOM<Verify>(
-        9,
+        10,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'verify',
         subBuilder: Verify.create)
     ..aOM<DiffieHellmanKeyExchange>(
-        10,
+        11,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'diffieHellmanKeyExchange',
         subBuilder: DiffieHellmanKeyExchange.create)
     ..aOM<HashSha256>(
-        11,
+        12,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'hashSha256',
         subBuilder: HashSha256.create)
     ..aOM<HashFileSha256>(
-        12,
+        13,
         const $core.bool.fromEnvironment('protobuf.omit_field_names')
             ? ''
             : 'hashFileSha256',
@@ -1029,6 +1103,7 @@ class Request extends $pb.GeneratedMessage {
 
   Request._() : super();
   factory Request({
+    $0.Empty? currentKeyPair,
     $0.Empty? generateKeyPair,
     InitKeyPair? initKeyPair,
     RestoreKeyPair? restoreKeyPair,
@@ -1043,6 +1118,9 @@ class Request extends $pb.GeneratedMessage {
     HashFileSha256? hashFileSha256,
   }) {
     final _result = create();
+    if (currentKeyPair != null) {
+      _result.currentKeyPair = currentKeyPair;
+    }
     if (generateKeyPair != null) {
       _result.generateKeyPair = generateKeyPair;
     }
@@ -1111,172 +1189,186 @@ class Request extends $pb.GeneratedMessage {
   void clearBody() => clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
-  $0.Empty get generateKeyPair => $_getN(0);
+  $0.Empty get currentKeyPair => $_getN(0);
   @$pb.TagNumber(1)
-  set generateKeyPair($0.Empty v) {
+  set currentKeyPair($0.Empty v) {
     setField(1, v);
   }
 
   @$pb.TagNumber(1)
-  $core.bool hasGenerateKeyPair() => $_has(0);
+  $core.bool hasCurrentKeyPair() => $_has(0);
   @$pb.TagNumber(1)
-  void clearGenerateKeyPair() => clearField(1);
+  void clearCurrentKeyPair() => clearField(1);
   @$pb.TagNumber(1)
-  $0.Empty ensureGenerateKeyPair() => $_ensure(0);
+  $0.Empty ensureCurrentKeyPair() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  InitKeyPair get initKeyPair => $_getN(1);
+  $0.Empty get generateKeyPair => $_getN(1);
   @$pb.TagNumber(2)
-  set initKeyPair(InitKeyPair v) {
+  set generateKeyPair($0.Empty v) {
     setField(2, v);
   }
 
   @$pb.TagNumber(2)
-  $core.bool hasInitKeyPair() => $_has(1);
+  $core.bool hasGenerateKeyPair() => $_has(1);
   @$pb.TagNumber(2)
-  void clearInitKeyPair() => clearField(2);
+  void clearGenerateKeyPair() => clearField(2);
   @$pb.TagNumber(2)
-  InitKeyPair ensureInitKeyPair() => $_ensure(1);
+  $0.Empty ensureGenerateKeyPair() => $_ensure(1);
 
   @$pb.TagNumber(3)
-  RestoreKeyPair get restoreKeyPair => $_getN(2);
+  InitKeyPair get initKeyPair => $_getN(2);
   @$pb.TagNumber(3)
-  set restoreKeyPair(RestoreKeyPair v) {
+  set initKeyPair(InitKeyPair v) {
     setField(3, v);
   }
 
   @$pb.TagNumber(3)
-  $core.bool hasRestoreKeyPair() => $_has(2);
+  $core.bool hasInitKeyPair() => $_has(2);
   @$pb.TagNumber(3)
-  void clearRestoreKeyPair() => clearField(3);
+  void clearInitKeyPair() => clearField(3);
   @$pb.TagNumber(3)
-  RestoreKeyPair ensureRestoreKeyPair() => $_ensure(2);
+  InitKeyPair ensureInitKeyPair() => $_ensure(2);
 
   @$pb.TagNumber(4)
-  BackupKeyPair get backupKeyPair => $_getN(3);
+  RestoreKeyPair get restoreKeyPair => $_getN(3);
   @$pb.TagNumber(4)
-  set backupKeyPair(BackupKeyPair v) {
+  set restoreKeyPair(RestoreKeyPair v) {
     setField(4, v);
   }
 
   @$pb.TagNumber(4)
-  $core.bool hasBackupKeyPair() => $_has(3);
+  $core.bool hasRestoreKeyPair() => $_has(3);
   @$pb.TagNumber(4)
-  void clearBackupKeyPair() => clearField(4);
+  void clearRestoreKeyPair() => clearField(4);
   @$pb.TagNumber(4)
-  BackupKeyPair ensureBackupKeyPair() => $_ensure(3);
+  RestoreKeyPair ensureRestoreKeyPair() => $_ensure(3);
 
   @$pb.TagNumber(5)
-  ValidateMnemonic get validateMnemonic => $_getN(4);
+  BackupKeyPair get backupKeyPair => $_getN(4);
   @$pb.TagNumber(5)
-  set validateMnemonic(ValidateMnemonic v) {
+  set backupKeyPair(BackupKeyPair v) {
     setField(5, v);
   }
 
   @$pb.TagNumber(5)
-  $core.bool hasValidateMnemonic() => $_has(4);
+  $core.bool hasBackupKeyPair() => $_has(4);
   @$pb.TagNumber(5)
-  void clearValidateMnemonic() => clearField(5);
+  void clearBackupKeyPair() => clearField(5);
   @$pb.TagNumber(5)
-  ValidateMnemonic ensureValidateMnemonic() => $_ensure(4);
+  BackupKeyPair ensureBackupKeyPair() => $_ensure(4);
 
   @$pb.TagNumber(6)
-  Encrypt get encrypt => $_getN(5);
+  ValidateMnemonic get validateMnemonic => $_getN(5);
   @$pb.TagNumber(6)
-  set encrypt(Encrypt v) {
+  set validateMnemonic(ValidateMnemonic v) {
     setField(6, v);
   }
 
   @$pb.TagNumber(6)
-  $core.bool hasEncrypt() => $_has(5);
+  $core.bool hasValidateMnemonic() => $_has(5);
   @$pb.TagNumber(6)
-  void clearEncrypt() => clearField(6);
+  void clearValidateMnemonic() => clearField(6);
   @$pb.TagNumber(6)
-  Encrypt ensureEncrypt() => $_ensure(5);
+  ValidateMnemonic ensureValidateMnemonic() => $_ensure(5);
 
   @$pb.TagNumber(7)
-  Decrypt get decrypt => $_getN(6);
+  Encrypt get encrypt => $_getN(6);
   @$pb.TagNumber(7)
-  set decrypt(Decrypt v) {
+  set encrypt(Encrypt v) {
     setField(7, v);
   }
 
   @$pb.TagNumber(7)
-  $core.bool hasDecrypt() => $_has(6);
+  $core.bool hasEncrypt() => $_has(6);
   @$pb.TagNumber(7)
-  void clearDecrypt() => clearField(7);
+  void clearEncrypt() => clearField(7);
   @$pb.TagNumber(7)
-  Decrypt ensureDecrypt() => $_ensure(6);
+  Encrypt ensureEncrypt() => $_ensure(6);
 
   @$pb.TagNumber(8)
-  Sign get sign => $_getN(7);
+  Decrypt get decrypt => $_getN(7);
   @$pb.TagNumber(8)
-  set sign(Sign v) {
+  set decrypt(Decrypt v) {
     setField(8, v);
   }
 
   @$pb.TagNumber(8)
-  $core.bool hasSign() => $_has(7);
+  $core.bool hasDecrypt() => $_has(7);
   @$pb.TagNumber(8)
-  void clearSign() => clearField(8);
+  void clearDecrypt() => clearField(8);
   @$pb.TagNumber(8)
-  Sign ensureSign() => $_ensure(7);
+  Decrypt ensureDecrypt() => $_ensure(7);
 
   @$pb.TagNumber(9)
-  Verify get verify => $_getN(8);
+  Sign get sign => $_getN(8);
   @$pb.TagNumber(9)
-  set verify(Verify v) {
+  set sign(Sign v) {
     setField(9, v);
   }
 
   @$pb.TagNumber(9)
-  $core.bool hasVerify() => $_has(8);
+  $core.bool hasSign() => $_has(8);
   @$pb.TagNumber(9)
-  void clearVerify() => clearField(9);
+  void clearSign() => clearField(9);
   @$pb.TagNumber(9)
-  Verify ensureVerify() => $_ensure(8);
+  Sign ensureSign() => $_ensure(8);
 
   @$pb.TagNumber(10)
-  DiffieHellmanKeyExchange get diffieHellmanKeyExchange => $_getN(9);
+  Verify get verify => $_getN(9);
   @$pb.TagNumber(10)
-  set diffieHellmanKeyExchange(DiffieHellmanKeyExchange v) {
+  set verify(Verify v) {
     setField(10, v);
   }
 
   @$pb.TagNumber(10)
-  $core.bool hasDiffieHellmanKeyExchange() => $_has(9);
+  $core.bool hasVerify() => $_has(9);
   @$pb.TagNumber(10)
-  void clearDiffieHellmanKeyExchange() => clearField(10);
+  void clearVerify() => clearField(10);
   @$pb.TagNumber(10)
-  DiffieHellmanKeyExchange ensureDiffieHellmanKeyExchange() => $_ensure(9);
+  Verify ensureVerify() => $_ensure(9);
 
   @$pb.TagNumber(11)
-  HashSha256 get hashSha256 => $_getN(10);
+  DiffieHellmanKeyExchange get diffieHellmanKeyExchange => $_getN(10);
   @$pb.TagNumber(11)
-  set hashSha256(HashSha256 v) {
+  set diffieHellmanKeyExchange(DiffieHellmanKeyExchange v) {
     setField(11, v);
   }
 
   @$pb.TagNumber(11)
-  $core.bool hasHashSha256() => $_has(10);
+  $core.bool hasDiffieHellmanKeyExchange() => $_has(10);
   @$pb.TagNumber(11)
-  void clearHashSha256() => clearField(11);
+  void clearDiffieHellmanKeyExchange() => clearField(11);
   @$pb.TagNumber(11)
-  HashSha256 ensureHashSha256() => $_ensure(10);
+  DiffieHellmanKeyExchange ensureDiffieHellmanKeyExchange() => $_ensure(10);
 
   @$pb.TagNumber(12)
-  HashFileSha256 get hashFileSha256 => $_getN(11);
+  HashSha256 get hashSha256 => $_getN(11);
   @$pb.TagNumber(12)
-  set hashFileSha256(HashFileSha256 v) {
+  set hashSha256(HashSha256 v) {
     setField(12, v);
   }
 
   @$pb.TagNumber(12)
-  $core.bool hasHashFileSha256() => $_has(11);
+  $core.bool hasHashSha256() => $_has(11);
   @$pb.TagNumber(12)
-  void clearHashFileSha256() => clearField(12);
+  void clearHashSha256() => clearField(12);
   @$pb.TagNumber(12)
-  HashFileSha256 ensureHashFileSha256() => $_ensure(11);
+  HashSha256 ensureHashSha256() => $_ensure(11);
+
+  @$pb.TagNumber(13)
+  HashFileSha256 get hashFileSha256 => $_getN(12);
+  @$pb.TagNumber(13)
+  set hashFileSha256(HashFileSha256 v) {
+    setField(13, v);
+  }
+
+  @$pb.TagNumber(13)
+  $core.bool hasHashFileSha256() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearHashFileSha256() => clearField(13);
+  @$pb.TagNumber(13)
+  HashFileSha256 ensureHashFileSha256() => $_ensure(12);
 }
 
 class Response_Error extends $pb.GeneratedMessage {

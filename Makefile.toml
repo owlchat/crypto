@@ -5,6 +5,13 @@ additional_profiles = ["development", "production"]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["ffi"]
 ANDROID_PLATFORM_VERSION = "28"
+LIB_OUT_DIR = "debug"
+
+[env.development]
+LIB_OUT_DIR = "debug"
+
+[env.production]
+LIB_OUT_DIR = "release"
 
 [tasks.test-flow]
 disabled = true

@@ -19,39 +19,6 @@ class RawOwlchatCrypto {
           lookup)
       : _lookup = lookup;
 
-  /// Destroy the crypto library, freeing all memory.
-  ///
-  /// This function must be called before the application exits.
-  /// It is **NOT** safe to call this function multiple times.
-  ///
-  /// # Examples
-  ///
-  /// ```
-  /// use owlchat_crypto::*;
-  ///
-  /// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::NotInitialized);
-  /// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
-  /// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::Ok);
-  /// ```
-  ///
-  /// # Errors
-  ///
-  /// This function will return an error if Keypair is not initialized yet.
-  ///
-  /// # Safety
-  ///
-  /// Calling this function will deallocate the [crypto::KeyPair] and remove it from the memory
-  /// so calling it, while the [crypto::KeyPair] is still in use, will cause undefined behavior.
-  int owlchat_crypto_destory() {
-    return _owlchat_crypto_destory();
-  }
-
-  late final _owlchat_crypto_destoryPtr =
-      _lookup<ffi.NativeFunction<ffi.Int32 Function()>>(
-          'owlchat_crypto_destory');
-  late final _owlchat_crypto_destory =
-      _owlchat_crypto_destoryPtr.asFunction<int Function()>();
-
   /// This a Dart FFI interface to be called inside an Isolate.
   ///
   /// Passing a Isolate Port, along with some Protobuf payload, to this function will
@@ -65,11 +32,13 @@ class RawOwlchatCrypto {
   ///
   /// This function is unsafe because it deals with raw pointers.
   int owlchat_crypto_dispatch(
+    RawKeyPair keypair,
     int port,
     ffi.Pointer<ffi.Uint8> data,
     int len,
   ) {
     return _owlchat_crypto_dispatch(
+      keypair,
       port,
       data,
       len,
@@ -78,46 +47,50 @@ class RawOwlchatCrypto {
 
   late final _owlchat_crypto_dispatchPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int32 Function(ffi.Int64, ffi.Pointer<ffi.Uint8>,
+          ffi.Int32 Function(RawKeyPair, ffi.Int64, ffi.Pointer<ffi.Uint8>,
               uintptr_t)>>('owlchat_crypto_dispatch');
   late final _owlchat_crypto_dispatch = _owlchat_crypto_dispatchPtr
-      .asFunction<int Function(int, ffi.Pointer<ffi.Uint8>, int)>();
+      .asFunction<int Function(RawKeyPair, int, ffi.Pointer<ffi.Uint8>, int)>();
 
-  /// Initialize the crypto library.
-  ///
-  /// This function must be called before any other crypto function.
-  /// It is **NOT** safe to call this function multiple times.
-  /// # Examples
-  ///
-  /// ```
-  /// use owlchat_crypto::*;
-  ///
-  /// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
-  /// ```
-  ///
-  /// # Errors
-  ///
-  /// This function will return an error if the [crypto::KeyPair] is already initialized.
+  /// Drops a [crypto::KeyPair]
   ///
   /// # Safety
-  ///
-  /// Should be only called once during the lifecycle of the application.
-  int owlchat_crypto_init() {
-    return _owlchat_crypto_init();
+  /// Make sure that the pointer is valid.
+  void owlchat_crypto_keypair_drop(
+    RawKeyPair pair,
+  ) {
+    return _owlchat_crypto_keypair_drop(
+      pair,
+    );
   }
 
-  late final _owlchat_crypto_initPtr =
-      _lookup<ffi.NativeFunction<ffi.Int32 Function()>>('owlchat_crypto_init');
-  late final _owlchat_crypto_init =
-      _owlchat_crypto_initPtr.asFunction<int Function()>();
+  late final _owlchat_crypto_keypair_dropPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(RawKeyPair)>>(
+          'owlchat_crypto_keypair_drop');
+  late final _owlchat_crypto_keypair_drop =
+      _owlchat_crypto_keypair_dropPtr.asFunction<void Function(RawKeyPair)>();
+
+  /// Creates a new [crypto::KeyPair] and return an opaque pointer to it.
+  /// # Safety
+  ///
+  /// You must call [owlchat_crypto_keypair_drop] once you are done with it.
+  RawKeyPair owlchat_crypto_keypair_new() {
+    return _owlchat_crypto_keypair_new();
+  }
+
+  late final _owlchat_crypto_keypair_newPtr =
+      _lookup<ffi.NativeFunction<RawKeyPair Function()>>(
+          'owlchat_crypto_keypair_new');
+  late final _owlchat_crypto_keypair_new =
+      _owlchat_crypto_keypair_newPtr.asFunction<RawKeyPair Function()>();
 }
 
 abstract class OwlchatResult {
   static const int Ok = 1;
-  static const int NotInitialized = 2;
-  static const int AlreadyInitialized = 3;
-  static const int NullPointerDetected = 4;
-  static const int InvalidProtobuf = 5;
+  static const int NullPointerDetected = 2;
+  static const int InvalidProtobuf = 3;
 }
 
+/// A Opaque pointer to a [`cryoto::KeyPair`]
+typedef RawKeyPair = ffi.Pointer<ffi.Void>;
 typedef uintptr_t = ffi.Uint64;

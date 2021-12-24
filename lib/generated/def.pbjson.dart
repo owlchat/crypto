@@ -16,12 +16,13 @@ const KeyPair$json = const {
     const {'1': 'public_key', '3': 1, '4': 1, '5': 12, '10': 'publicKey'},
     const {'1': 'secret_key', '3': 2, '4': 1, '5': 12, '10': 'secretKey'},
     const {'1': 'seed', '3': 3, '4': 1, '5': 12, '10': 'seed'},
+    const {'1': 'raw_pointer', '3': 4, '4': 1, '5': 3, '10': 'rawPointer'},
   ],
 };
 
 /// Descriptor for `KeyPair`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List keyPairDescriptor = $convert.base64Decode(
-    'CgdLZXlQYWlyEh0KCnB1YmxpY19rZXkYASABKAxSCXB1YmxpY0tleRIdCgpzZWNyZXRfa2V5GAIgASgMUglzZWNyZXRLZXkSEgoEc2VlZBgDIAEoDFIEc2VlZA==');
+    'CgdLZXlQYWlyEh0KCnB1YmxpY19rZXkYASABKAxSCXB1YmxpY0tleRIdCgpzZWNyZXRfa2V5GAIgASgMUglzZWNyZXRLZXkSEgoEc2VlZBgDIAEoDFIEc2VlZBIfCgtyYXdfcG9pbnRlchgEIAEoA1IKcmF3UG9pbnRlcg==');
 @$core.Deprecated('Use initKeyPairDescriptor instead')
 const InitKeyPair$json = const {
   '1': 'InitKeyPair',
@@ -71,23 +72,25 @@ const Encrypt$json = const {
   '1': 'Encrypt',
   '2': const [
     const {'1': 'plaintext', '3': 1, '4': 1, '5': 12, '10': 'plaintext'},
+    const {'1': 'secret_key', '3': 2, '4': 1, '5': 12, '10': 'secretKey'},
   ],
 };
 
 /// Descriptor for `Encrypt`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List encryptDescriptor = $convert
-    .base64Decode('CgdFbmNyeXB0EhwKCXBsYWludGV4dBgBIAEoDFIJcGxhaW50ZXh0');
+final $typed_data.Uint8List encryptDescriptor = $convert.base64Decode(
+    'CgdFbmNyeXB0EhwKCXBsYWludGV4dBgBIAEoDFIJcGxhaW50ZXh0Eh0KCnNlY3JldF9rZXkYAiABKAxSCXNlY3JldEtleQ==');
 @$core.Deprecated('Use decryptDescriptor instead')
 const Decrypt$json = const {
   '1': 'Decrypt',
   '2': const [
     const {'1': 'ciphertext', '3': 1, '4': 1, '5': 12, '10': 'ciphertext'},
+    const {'1': 'secret_key', '3': 2, '4': 1, '5': 12, '10': 'secretKey'},
   ],
 };
 
 /// Descriptor for `Decrypt`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List decryptDescriptor = $convert
-    .base64Decode('CgdEZWNyeXB0Eh4KCmNpcGhlcnRleHQYASABKAxSCmNpcGhlcnRleHQ=');
+final $typed_data.Uint8List decryptDescriptor = $convert.base64Decode(
+    'CgdEZWNyeXB0Eh4KCmNpcGhlcnRleHQYASABKAxSCmNpcGhlcnRleHQSHQoKc2VjcmV0X2tleRgCIAEoDFIJc2VjcmV0S2V5');
 @$core.Deprecated('Use signDescriptor instead')
 const Sign$json = const {
   '1': 'Sign',
@@ -157,8 +160,17 @@ const Request$json = const {
   '1': 'Request',
   '2': const [
     const {
-      '1': 'generate_key_pair',
+      '1': 'current_key_pair',
       '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Empty',
+      '9': 0,
+      '10': 'currentKeyPair'
+    },
+    const {
+      '1': 'generate_key_pair',
+      '3': 2,
       '4': 1,
       '5': 11,
       '6': '.google.protobuf.Empty',
@@ -167,7 +179,7 @@ const Request$json = const {
     },
     const {
       '1': 'init_key_pair',
-      '3': 2,
+      '3': 3,
       '4': 1,
       '5': 11,
       '6': '.owlchat.InitKeyPair',
@@ -176,7 +188,7 @@ const Request$json = const {
     },
     const {
       '1': 'restore_key_pair',
-      '3': 3,
+      '3': 4,
       '4': 1,
       '5': 11,
       '6': '.owlchat.RestoreKeyPair',
@@ -185,7 +197,7 @@ const Request$json = const {
     },
     const {
       '1': 'backup_key_pair',
-      '3': 4,
+      '3': 5,
       '4': 1,
       '5': 11,
       '6': '.owlchat.BackupKeyPair',
@@ -194,7 +206,7 @@ const Request$json = const {
     },
     const {
       '1': 'validate_mnemonic',
-      '3': 5,
+      '3': 6,
       '4': 1,
       '5': 11,
       '6': '.owlchat.ValidateMnemonic',
@@ -203,7 +215,7 @@ const Request$json = const {
     },
     const {
       '1': 'encrypt',
-      '3': 6,
+      '3': 7,
       '4': 1,
       '5': 11,
       '6': '.owlchat.Encrypt',
@@ -212,7 +224,7 @@ const Request$json = const {
     },
     const {
       '1': 'decrypt',
-      '3': 7,
+      '3': 8,
       '4': 1,
       '5': 11,
       '6': '.owlchat.Decrypt',
@@ -221,7 +233,7 @@ const Request$json = const {
     },
     const {
       '1': 'sign',
-      '3': 8,
+      '3': 9,
       '4': 1,
       '5': 11,
       '6': '.owlchat.Sign',
@@ -230,7 +242,7 @@ const Request$json = const {
     },
     const {
       '1': 'verify',
-      '3': 9,
+      '3': 10,
       '4': 1,
       '5': 11,
       '6': '.owlchat.Verify',
@@ -239,7 +251,7 @@ const Request$json = const {
     },
     const {
       '1': 'diffie_hellman_key_exchange',
-      '3': 10,
+      '3': 11,
       '4': 1,
       '5': 11,
       '6': '.owlchat.DiffieHellmanKeyExchange',
@@ -248,7 +260,7 @@ const Request$json = const {
     },
     const {
       '1': 'hash_sha256',
-      '3': 11,
+      '3': 12,
       '4': 1,
       '5': 11,
       '6': '.owlchat.HashSha256',
@@ -257,7 +269,7 @@ const Request$json = const {
     },
     const {
       '1': 'hash_file_sha256',
-      '3': 12,
+      '3': 13,
       '4': 1,
       '5': 11,
       '6': '.owlchat.HashFileSha256',
@@ -272,7 +284,7 @@ const Request$json = const {
 
 /// Descriptor for `Request`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List requestDescriptor = $convert.base64Decode(
-    'CgdSZXF1ZXN0EkQKEWdlbmVyYXRlX2tleV9wYWlyGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5SABSD2dlbmVyYXRlS2V5UGFpchI6Cg1pbml0X2tleV9wYWlyGAIgASgLMhQub3dsY2hhdC5Jbml0S2V5UGFpckgAUgtpbml0S2V5UGFpchJDChByZXN0b3JlX2tleV9wYWlyGAMgASgLMhcub3dsY2hhdC5SZXN0b3JlS2V5UGFpckgAUg5yZXN0b3JlS2V5UGFpchJACg9iYWNrdXBfa2V5X3BhaXIYBCABKAsyFi5vd2xjaGF0LkJhY2t1cEtleVBhaXJIAFINYmFja3VwS2V5UGFpchJIChF2YWxpZGF0ZV9tbmVtb25pYxgFIAEoCzIZLm93bGNoYXQuVmFsaWRhdGVNbmVtb25pY0gAUhB2YWxpZGF0ZU1uZW1vbmljEiwKB2VuY3J5cHQYBiABKAsyEC5vd2xjaGF0LkVuY3J5cHRIAFIHZW5jcnlwdBIsCgdkZWNyeXB0GAcgASgLMhAub3dsY2hhdC5EZWNyeXB0SABSB2RlY3J5cHQSIwoEc2lnbhgIIAEoCzINLm93bGNoYXQuU2lnbkgAUgRzaWduEikKBnZlcmlmeRgJIAEoCzIPLm93bGNoYXQuVmVyaWZ5SABSBnZlcmlmeRJiChtkaWZmaWVfaGVsbG1hbl9rZXlfZXhjaGFuZ2UYCiABKAsyIS5vd2xjaGF0LkRpZmZpZUhlbGxtYW5LZXlFeGNoYW5nZUgAUhhkaWZmaWVIZWxsbWFuS2V5RXhjaGFuZ2USNgoLaGFzaF9zaGEyNTYYCyABKAsyEy5vd2xjaGF0Lkhhc2hTaGEyNTZIAFIKaGFzaFNoYTI1NhJDChBoYXNoX2ZpbGVfc2hhMjU2GAwgASgLMhcub3dsY2hhdC5IYXNoRmlsZVNoYTI1NkgAUg5oYXNoRmlsZVNoYTI1NkIGCgRib2R5');
+    'CgdSZXF1ZXN0EkIKEGN1cnJlbnRfa2V5X3BhaXIYASABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIAFIOY3VycmVudEtleVBhaXISRAoRZ2VuZXJhdGVfa2V5X3BhaXIYAiABKAsyFi5nb29nbGUucHJvdG9idWYuRW1wdHlIAFIPZ2VuZXJhdGVLZXlQYWlyEjoKDWluaXRfa2V5X3BhaXIYAyABKAsyFC5vd2xjaGF0LkluaXRLZXlQYWlySABSC2luaXRLZXlQYWlyEkMKEHJlc3RvcmVfa2V5X3BhaXIYBCABKAsyFy5vd2xjaGF0LlJlc3RvcmVLZXlQYWlySABSDnJlc3RvcmVLZXlQYWlyEkAKD2JhY2t1cF9rZXlfcGFpchgFIAEoCzIWLm93bGNoYXQuQmFja3VwS2V5UGFpckgAUg1iYWNrdXBLZXlQYWlyEkgKEXZhbGlkYXRlX21uZW1vbmljGAYgASgLMhkub3dsY2hhdC5WYWxpZGF0ZU1uZW1vbmljSABSEHZhbGlkYXRlTW5lbW9uaWMSLAoHZW5jcnlwdBgHIAEoCzIQLm93bGNoYXQuRW5jcnlwdEgAUgdlbmNyeXB0EiwKB2RlY3J5cHQYCCABKAsyEC5vd2xjaGF0LkRlY3J5cHRIAFIHZGVjcnlwdBIjCgRzaWduGAkgASgLMg0ub3dsY2hhdC5TaWduSABSBHNpZ24SKQoGdmVyaWZ5GAogASgLMg8ub3dsY2hhdC5WZXJpZnlIAFIGdmVyaWZ5EmIKG2RpZmZpZV9oZWxsbWFuX2tleV9leGNoYW5nZRgLIAEoCzIhLm93bGNoYXQuRGlmZmllSGVsbG1hbktleUV4Y2hhbmdlSABSGGRpZmZpZUhlbGxtYW5LZXlFeGNoYW5nZRI2CgtoYXNoX3NoYTI1NhgMIAEoCzITLm93bGNoYXQuSGFzaFNoYTI1NkgAUgpoYXNoU2hhMjU2EkMKEGhhc2hfZmlsZV9zaGEyNTYYDSABKAsyFy5vd2xjaGF0Lkhhc2hGaWxlU2hhMjU2SABSDmhhc2hGaWxlU2hhMjU2QgYKBGJvZHk=');
 @$core.Deprecated('Use responseDescriptor instead')
 const Response$json = const {
   '1': 'Response',

@@ -8,6 +8,7 @@ message KeyPair {
   bytes public_key = 1;
   bytes secret_key = 2;
   bytes seed = 3;
+  int64 raw_pointer = 4;
 }
 
 message InitKeyPair {
@@ -28,10 +29,12 @@ message ValidateMnemonic {
 
 message Encrypt {
   bytes plaintext = 1;
+  bytes secret_key = 2;
 }
 
 message Decrypt {
   bytes ciphertext = 1;
+  bytes secret_key = 2;
 }
 
 message Sign {
@@ -58,18 +61,19 @@ message HashFileSha256 {
 
 message Request {
   oneof body {
-    google.protobuf.Empty generate_key_pair = 1;
-    InitKeyPair init_key_pair = 2;
-    RestoreKeyPair restore_key_pair = 3;
-    BackupKeyPair backup_key_pair = 4;
-    ValidateMnemonic validate_mnemonic = 5;
-    Encrypt encrypt = 6;
-    Decrypt decrypt = 7;
-    Sign sign = 8;
-    Verify verify = 9;
-    DiffieHellmanKeyExchange diffie_hellman_key_exchange = 10;
-    HashSha256 hash_sha256 = 11;
-    HashFileSha256 hash_file_sha256 = 12;
+    google.protobuf.Empty current_key_pair = 1;
+    google.protobuf.Empty generate_key_pair = 2;
+    InitKeyPair init_key_pair = 3;
+    RestoreKeyPair restore_key_pair = 4;
+    BackupKeyPair backup_key_pair = 5;
+    ValidateMnemonic validate_mnemonic = 6;
+    Encrypt encrypt = 7;
+    Decrypt decrypt = 8;
+    Sign sign = 9;
+    Verify verify = 10;
+    DiffieHellmanKeyExchange diffie_hellman_key_exchange = 11;
+    HashSha256 hash_sha256 = 12;
+    HashFileSha256 hash_file_sha256 = 13;
   }
 }
 

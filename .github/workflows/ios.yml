@@ -50,6 +50,24 @@ jobs:
           command: install
           args: cargo-make
 
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+
+      - name: Run Flutter pub get
+        run: flutter pub get
+
+      - name: Run cargo make native (Release)
+        uses: actions-rs/cargo@v1
+        continue-on-error: false
+        with:
+          command: make
+          args: -p production native
+
+      - name: Run Native Tests (in Flutter)
+        run: flutter test
+
       - name: Install iOS Targets
         run: rustup target add aarch64-apple-ios x86_64-apple-ios
 

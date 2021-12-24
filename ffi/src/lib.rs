@@ -1,78 +1,50 @@
-use once_cell::sync::OnceCell;
-
 use crate::pb::response::{self, error};
 
 pub mod pb;
 
-static mut KEYPAIR: OnceCell<crypto::KeyPair> = OnceCell::new();
+/// A Opaque pointer to a [`cryoto::KeyPair`]
+type RawKeyPair = *const std::ffi::c_void;
 
 #[repr(C)]
 pub enum OwlchatResult {
     Ok = 1,
-    NotInitialized = 2,
-    AlreadyInitialized = 3,
-    NullPointerDetected = 4,
-    InvalidProtobuf = 5,
+    NullPointerDetected = 2,
+    InvalidProtobuf = 3,
 }
 
-/// Initialize the crypto library.
-///
-/// This function must be called before any other crypto function.
-/// It is **NOT** safe to call this function multiple times.
-/// # Examples
-///
-/// ```
-/// use owlchat_crypto::*;
-///
-/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
-/// ```
-///
-/// # Errors
-///
-/// This function will return an error if the [crypto::KeyPair] is already initialized.
-///
+/// Creates a new [crypto::KeyPair] and return an opaque pointer to it.
 /// # Safety
 ///
-/// Should be only called once during the lifecycle of the application.
+/// You must call [owlchat_crypto_keypair_drop] once you are done with it.
 #[no_mangle]
-pub unsafe extern "C" fn owlchat_crypto_init() -> OwlchatResult {
-    if KEYPAIR.get().is_some() {
-        OwlchatResult::AlreadyInitialized
-    } else {
-        let _ = KEYPAIR.set(crypto::KeyPair::new());
-        OwlchatResult::Ok
-    }
+pub unsafe extern "C" fn owlchat_crypto_keypair_new() -> RawKeyPair {
+    let pair = crypto::KeyPair::new();
+    keypair_ptr_of(pair)
 }
 
-/// Destroy the crypto library, freeing all memory.
-///
-/// This function must be called before the application exits.
-/// It is **NOT** safe to call this function multiple times.
-///
-/// # Examples
-///
-/// ```
-/// use owlchat_crypto::*;
-///
-/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::NotInitialized);
-/// assert_eq!(unsafe { owlchat_crypto_init() }, OwlchatResult::Ok);
-/// assert_eq!(unsafe { owlchat_crypto_destory() }, OwlchatResult::Ok);
-/// ```
-///
-/// # Errors
-///
-/// This function will return an error if Keypair is not initialized yet.
+/// Drops a [crypto::KeyPair]
 ///
 /// # Safety
-///
-/// Calling this function will deallocate the [crypto::KeyPair] and remove it from the memory
-/// so calling it, while the [crypto::KeyPair] is still in use, will cause undefined behavior.
+/// Make sure that the pointer is valid.
 #[no_mangle]
-pub unsafe extern "C" fn owlchat_crypto_destory() -> OwlchatResult {
-    match KEYPAIR.take() {
-        Some(_) => OwlchatResult::Ok,
-        None => OwlchatResult::NotInitialized,
+pub unsafe extern "C" fn owlchat_crypto_keypair_drop(pair: RawKeyPair) {
+    // check if the pointer is null
+    if pair.is_null() {
+        return;
     }
+    let _ = Box::from_raw(pair as *mut crypto::KeyPair);
+}
+
+/// A simple macro to get keyspair from a raw pointer
+#[doc(hidden)]
+macro_rules! keypair {
+    ($ptr:expr) => {
+        if $ptr.is_null() {
+            return crate::OwlchatResult::NullPointerDetected;
+        } else {
+            ($ptr as *const crypto::KeyPair).as_ref().unwrap()
+        }
+    };
 }
 
 /// This a Dart FFI interface to be called inside an Isolate.
@@ -90,6 +62,7 @@ pub unsafe extern "C" fn owlchat_crypto_destory() -> OwlchatResult {
 #[cfg(feature = "dart-ffi")]
 #[no_mangle]
 pub unsafe extern "C" fn owlchat_crypto_dispatch(
+    keypair: RawKeyPair,
     port: i64,
     data: *const u8,
     len: usize,
@@ -98,6 +71,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
     use allo_isolate::ZeroCopyBuffer;
     use prost::Message;
 
+    let keypair = keypair!(keypair);
     // check if the pointer is null first
     if data.is_null() {
         return OwlchatResult::NullPointerDetected;
@@ -112,7 +86,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
             return OwlchatResult::InvalidProtobuf;
         }
     };
-    let res = handle_request(req);
+    let res = handle_request(keypair, req);
     let mut res_buf = Vec::with_capacity(res.encoded_len());
     res.encode(&mut res_buf).unwrap();
     isolate.post(ZeroCopyBuffer(res_buf));
@@ -146,9 +120,13 @@ impl Default for Buffer {
 /// you should free the returned buffer using [owlchat_crypto_free_buffer] after you are done with it.
 #[cfg(not(feature = "dart-ffi"))]
 #[no_mangle]
-pub unsafe extern "C" fn owlchat_crypto_dispatch(data: *const u8, len: usize) -> Buffer {
+pub unsafe extern "C" fn owlchat_crypto_dispatch(
+    keypair: RawKeyPair,
+    data: *const u8,
+    len: usize,
+) -> Buffer {
     use prost::Message;
-
+    let keypair = keypair!(keypair);
     // check if the pointer is null first
     if data.is_null() {
         return Default::default();
@@ -161,7 +139,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(data: *const u8, len: usize) ->
             return Default::default();
         }
     };
-    let res = handle_request(req);
+    let res = handle_request(keypair, req);
     let mut res_buf = Vec::with_capacity(res.encoded_len());
     res.encode(&mut res_buf).unwrap();
     let mut boxed_buf = res_buf.into_boxed_slice();
@@ -194,23 +172,12 @@ pub unsafe extern "C" fn owlchat_crypto_free_buffer(buffer: Buffer) {
     Box::from_raw(s.as_mut_ptr());
 }
 
-macro_rules! keypair {
-    () => {
-        match KEYPAIR.get() {
-            Some(v) => v,
-            None => {
-                return pb::Response {
-                    body: Some(ResponseBody::Error(response::Error {
-                        kind: error::Kind::NotInitialized.into(),
-                        message: "Keypair not initialized yet!".to_string(),
-                    })),
-                }
-            }
-        }
-    };
+unsafe fn keypair_ptr_of(pair: crypto::KeyPair) -> RawKeyPair {
+    let boxed = Box::new(pair);
+    Box::into_raw(boxed) as _
 }
 
-unsafe fn handle_request(req: pb::Request) -> pb::Response {
+unsafe fn handle_request(keypair: &crypto::KeyPair, req: pb::Request) -> pb::Response {
     use pb::request::Body as RequestBody;
     use pb::response::Body as ResponseBody;
     let body = match req.body {
@@ -226,6 +193,12 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
     };
 
     let res_body = match body {
+        RequestBody::CurrentKeyPair(_) => ResponseBody::KeyPair(pb::KeyPair {
+            public_key: keypair.public_key().to_vec(),
+            secret_key: keypair.secret_key().to_vec(),
+            seed: keypair.seed().map(|v| v.to_vec()).unwrap_or_default(),
+            raw_pointer: keypair as *const _ as _,
+        }),
         RequestBody::ValidateMnemonic(v) => {
             let is_valid = crypto::KeyPair::is_valid_mnemonic(&v.phrase);
             ResponseBody::ValidMnemonic(is_valid)
@@ -247,14 +220,11 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
             let seed = keypair.seed().map(|v| v.to_vec()).unwrap_or_default();
-            // remove the old value and drop it.
-            let _ = KEYPAIR.take();
-            // then sets it to this new one.
-            let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
                 secret_key,
                 seed,
+                raw_pointer: keypair_ptr_of(keypair) as _,
             })
         }
         RequestBody::InitKeyPair(v) => {
@@ -265,14 +235,11 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             let keypair = crypto::KeyPair::init(secret_key);
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
-            // remove the old value and drop it.
-            let _ = KEYPAIR.take();
-            // then sets it to this new one.
-            let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
                 secret_key,
                 seed: Default::default(),
+                raw_pointer: keypair_ptr_of(keypair) as _,
             })
         }
         RequestBody::RestoreKeyPair(v) => {
@@ -290,19 +257,15 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             let public_key = keypair.public_key().to_vec();
             let secret_key = keypair.secret_key().to_vec();
             let seed = keypair.seed().map(|v| v.to_vec()).unwrap_or_default();
-            // remove the old value and drop it.
-            let _ = KEYPAIR.take();
-            // then sets it to this new one.
-            let _ = KEYPAIR.set(keypair);
             ResponseBody::KeyPair(pb::KeyPair {
                 public_key,
                 secret_key,
                 seed,
+                raw_pointer: keypair_ptr_of(keypair) as _,
             })
         }
         RequestBody::BackupKeyPair(v) => {
             let seed = seed_from(&v.maybe_seed).ok();
-            let keypair = keypair!();
             let paper_key = match keypair.backup(seed) {
                 Ok(v) => v,
                 Err(e) => {
@@ -317,9 +280,14 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             ResponseBody::Mnemonic(paper_key)
         }
         RequestBody::Encrypt(mut v) => {
+            // try to read the secret key from the request
+            // if it's not there, try to read it from the keypair.
+            let secret_key = match secret_key_from(&v.secret_key) {
+                Ok(v) => v,
+                Err(_) => keypair.secret_key(),
+            };
             let msg = &mut v.plaintext;
-            let keypair = keypair!();
-            match keypair.encrypt(msg) {
+            match keypair.encrypt_with(secret_key, msg) {
                 Ok(_) => {
                     // the plaintext now is the ciphertext
                     let ciphertext = v.plaintext;
@@ -336,9 +304,14 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             }
         }
         RequestBody::Decrypt(mut v) => {
+            // try to read the secret key from the request
+            // if it's not there, try to read it from the keypair.
+            let secret_key = match secret_key_from(&v.secret_key) {
+                Ok(v) => v,
+                Err(_) => keypair.secret_key(),
+            };
             let msg = &mut v.ciphertext;
-            let keypair = keypair!();
-            match keypair.decrypt(msg) {
+            match keypair.decrypt_with(secret_key, msg) {
                 Ok(_) => {
                     // the ciphertext now is the plaintext
                     let plaintext = v.ciphertext;
@@ -355,7 +328,6 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
             }
         }
         RequestBody::Sign(v) => {
-            let keypair = keypair!();
             let signature = keypair.calculate_signature(&v.msg);
             ResponseBody::Signature(signature.to_vec())
         }
@@ -364,7 +336,6 @@ unsafe fn handle_request(req: pb::Request) -> pb::Response {
                 Ok(v) => v,
                 Err(e) => return e,
             };
-            let keypair = keypair!();
             let shared_secret = keypair.dh(their_public_key);
             ResponseBody::SharedSecret(shared_secret.to_vec())
         }

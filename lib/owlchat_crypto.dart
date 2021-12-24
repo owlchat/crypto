@@ -15,13 +15,34 @@ import 'ffi.dart' as ffi;
 /// Owlchat Crypto Bining.
 class OwlchatCrypto {
   final ffi.RawOwlchatCrypto _raw;
+  late ffi.RawKeyPair _keyPair;
 
   /// Loads `Owlchat Crypto`'s [DynamicLibrary] depending on the current [Platform]
   ///
   /// Maybe throws [UnsupportedError] if the current [Platform]
   /// is not supported.
   OwlchatCrypto() : _raw = _load() {
-    _raw.owlchat_crypto_init();
+    _keyPair = _raw.owlchat_crypto_keypair_new();
+  }
+
+  /// Returns the current [KeyPair] stored in the current [OwlchatCrypto] instance.
+  Future<KeyPair> get currentKeyPair async {
+    final req = Request(
+      currentKeyPair: Empty(),
+    );
+    final res = await _dispatch(req);
+    final keypair = res.ensureKeyPair();
+    final maybeSeed = keypair.seed.isNotEmpty
+        ? Seed(
+            Uint8List.fromList(keypair.seed),
+          )
+        : null;
+    assert(keypair.rawPointer.toInt() == _keyPair.address);
+    return KeyPair(
+      publicKey: PublicKey(Uint8List.fromList(keypair.publicKey)),
+      secretKey: SecretKey(Uint8List.fromList(keypair.secretKey)),
+      seed: maybeSeed,
+    );
   }
 
   /// Initializes the [OwlchatCrypto] library with the given [SecretKey].
@@ -35,6 +56,9 @@ class OwlchatCrypto {
     );
     final res = await _dispatch(req);
     final keypair = res.ensureKeyPair();
+    // free the original old keypair
+    _raw.owlchat_crypto_keypair_drop(_keyPair);
+    _keyPair = ffi.RawKeyPair.fromAddress(keypair.rawPointer.toInt());
     return KeyPair(
       publicKey: PublicKey(Uint8List.fromList(keypair.publicKey)),
       secretKey: SecretKey(Uint8List.fromList(keypair.secretKey)),
@@ -49,6 +73,9 @@ class OwlchatCrypto {
     final publicKey = PublicKey(Uint8List.fromList(keypair.publicKey));
     final secretKey = SecretKey(Uint8List.fromList(keypair.secretKey));
     final seed = Seed(Uint8List.fromList(keypair.seed));
+    // free the original old keypair
+    _raw.owlchat_crypto_keypair_drop(_keyPair);
+    _keyPair = ffi.RawKeyPair.fromAddress(keypair.rawPointer.toInt());
     return KeyPair(
       publicKey: publicKey,
       secretKey: secretKey,
@@ -56,7 +83,7 @@ class OwlchatCrypto {
     );
   }
 
-  /// Resets the [KeyPair] of the [OwlchatCrypto] using the paper key (seed phrase).
+  /// Restore the [KeyPair] of the [OwlchatCrypto] using the paper key (seed phrase).
   Future<KeyPair> restoreKeyPair(String paperKey) async {
     final req = Request(
       restoreKeyPair: RestoreKeyPair(
@@ -72,6 +99,9 @@ class OwlchatCrypto {
             Uint8List.fromList(keypair.seed),
           )
         : null;
+    // free the original old keypair
+    _raw.owlchat_crypto_keypair_drop(_keyPair);
+    _keyPair = ffi.RawKeyPair.fromAddress(keypair.rawPointer.toInt());
     return KeyPair(
       publicKey: publicKey,
       secretKey: secretKey,
@@ -90,9 +120,118 @@ class OwlchatCrypto {
     return res.mnemonic;
   }
 
+  /// Does Diffie-Hellman key exchange with the given [PublicKey]
+  /// using the current [KeyPair] of the [OwlchatCrypto] instance.
+  /// Returns the [SharedSecret].
+  Future<SharedSecret> diffieHellmanKeyExchange(PublicKey publicKey) async {
+    final req = Request(
+      diffieHellmanKeyExchange: DiffieHellmanKeyExchange(
+        theirPublicKey: publicKey.expose().cast(),
+      ),
+    );
+    final res = await _dispatch(req);
+    return SharedSecret(Uint8List.fromList(res.sharedSecret));
+  }
+
+  /// Encrypts the given [message] using the [KeyPair] of the [OwlchatCrypto] instance.
+  /// Returns the encrypted [message] as a [Uint8List].
+  Future<Uint8List> encrypt(
+    Uint8List message, {
+    SharedSecret? sharedSecret,
+  }) async {
+    final req = Request(
+      encrypt: Encrypt(
+        plaintext: message,
+        secretKey: sharedSecret?.expose().toList(growable: false),
+      ),
+    );
+    final res = await _dispatch(req);
+    return Uint8List.fromList(res.encryptedMessage);
+  }
+
+  /// Decrypts the given [message] using the [KeyPair] of the [OwlchatCrypto] instance.
+  /// Returns the decrypted [message] as a [Uint8List].
+  Future<Uint8List> decrypt(
+    Uint8List message, {
+    SharedSecret? sharedSecret,
+  }) async {
+    final req = Request(
+      decrypt: Decrypt(
+        ciphertext: message,
+        secretKey: sharedSecret?.expose().toList(growable: false),
+      ),
+    );
+    final res = await _dispatch(req);
+    return Uint8List.fromList(res.decryptedMessage);
+  }
+
+  /// Signs the given [message] using the [KeyPair] of the [OwlchatCrypto] instance.
+  /// Returns the signature as a [Uint8List].
+  Future<Uint8List> sign(Uint8List message) async {
+    final req = Request(
+      sign: Sign(
+        msg: message,
+      ),
+    );
+    final res = await _dispatch(req);
+    return Uint8List.fromList(res.signature);
+  }
+
+  /// Verifies the given [signature] for the given [message] using the [Publickey]
+  /// Returns true if the signature is valid and this [message] if signed with this public key, false otherwise.
+  Future<bool> verify({
+    required PublicKey theirPublicKey,
+    required Uint8List message,
+    required Uint8List signature,
+  }) async {
+    final req = Request(
+      verify: Verify(
+        msg: message,
+        sig: signature,
+        publicKey: theirPublicKey.expose().cast(),
+      ),
+    );
+    final res = await _dispatch(req);
+    return res.validSignature;
+  }
+
+  /// Checks if the given [paperKey] is a valid Mnemonic Paperkey (Seed phrase).
+  /// Returns `true` if the [paperKey] is valid, `false` otherwise.
+  Future<bool> validatePaperKey(String paperKey) async {
+    final req = Request(
+      validateMnemonic: ValidateMnemonic(
+        phrase: paperKey,
+      ),
+    );
+    final res = await _dispatch(req);
+    return res.validMnemonic;
+  }
+
+  /// Hashes the given [input] using SHA256 and returns the result as a [Uint8List].
+  Future<Uint8List> hash(Uint8List input) async {
+    final req = Request(
+      hashSha256: HashSha256(
+        input: input,
+      ),
+    );
+    final res = await _dispatch(req);
+    return Uint8List.fromList(res.sha256Hash);
+  }
+
+  /// Hashes the given file stored at [path] using SHA256 and returns the result as a [Uint8List].
+  Future<Uint8List> hashFile(Uri path) async {
+    final req = Request(
+      hashFileSha256: HashFileSha256(
+        path: path.toString(),
+      ),
+    );
+    final res = await _dispatch(req);
+    return Uint8List.fromList(res.sha256Hash);
+  }
+
   /// Dispose everything, clears the current [OwlchatCrypto] instance.
   void dispose() {
-    _raw.owlchat_crypto_destory();
+    _raw.owlchat_crypto_keypair_drop(_keyPair);
   }
 
   Future<Response> _dispatch(Request req) async {
@@ -101,7 +240,12 @@ class OwlchatCrypto {
     final buffer = req.writeToBuffer();
     final data = buffer.asPtr();
     final len = buffer.length;
-    final result = _raw.owlchat_crypto_dispatch(port.nativePort, data, len);
+    final result = _raw.owlchat_crypto_dispatch(
+      _keyPair,
+      port.nativePort,
+      data,
+      len,
+    );
     _assertOk(result);
     final resBytes = await completer.future;
     final res = Response.fromBuffer(resBytes);

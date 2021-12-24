@@ -6,6 +6,8 @@ pub struct KeyPair {
     pub secret_key: ::prost::alloc::vec::Vec<u8>,
     #[prost(bytes = "vec", tag = "3")]
     pub seed: ::prost::alloc::vec::Vec<u8>,
+    #[prost(int64, tag = "4")]
+    pub raw_pointer: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InitKeyPair {
@@ -31,11 +33,15 @@ pub struct ValidateMnemonic {
 pub struct Encrypt {
     #[prost(bytes = "vec", tag = "1")]
     pub plaintext: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub secret_key: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Decrypt {
     #[prost(bytes = "vec", tag = "1")]
     pub ciphertext: ::prost::alloc::vec::Vec<u8>,
+    #[prost(bytes = "vec", tag = "2")]
+    pub secret_key: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Sign {
@@ -70,7 +76,7 @@ pub struct HashFileSha256 {
 pub struct Request {
     #[prost(
         oneof = "request::Body",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
     )]
     pub body: ::core::option::Option<request::Body>,
 }
@@ -79,28 +85,30 @@ pub mod request {
     #[derive(Clone, PartialEq, ::prost::Oneof)]
     pub enum Body {
         #[prost(message, tag = "1")]
-        GenerateKeyPair(()),
+        CurrentKeyPair(()),
         #[prost(message, tag = "2")]
-        InitKeyPair(super::InitKeyPair),
+        GenerateKeyPair(()),
         #[prost(message, tag = "3")]
-        RestoreKeyPair(super::RestoreKeyPair),
+        InitKeyPair(super::InitKeyPair),
         #[prost(message, tag = "4")]
-        BackupKeyPair(super::BackupKeyPair),
+        RestoreKeyPair(super::RestoreKeyPair),
         #[prost(message, tag = "5")]
-        ValidateMnemonic(super::ValidateMnemonic),
+        BackupKeyPair(super::BackupKeyPair),
         #[prost(message, tag = "6")]
-        Encrypt(super::Encrypt),
+        ValidateMnemonic(super::ValidateMnemonic),
         #[prost(message, tag = "7")]
-        Decrypt(super::Decrypt),
+        Encrypt(super::Encrypt),
         #[prost(message, tag = "8")]
-        Sign(super::Sign),
+        Decrypt(super::Decrypt),
         #[prost(message, tag = "9")]
-        Verify(super::Verify),
+        Sign(super::Sign),
         #[prost(message, tag = "10")]
-        DiffieHellmanKeyExchange(super::DiffieHellmanKeyExchange),
+        Verify(super::Verify),
         #[prost(message, tag = "11")]
-        HashSha256(super::HashSha256),
+        DiffieHellmanKeyExchange(super::DiffieHellmanKeyExchange),
         #[prost(message, tag = "12")]
+        HashSha256(super::HashSha256),
+        #[prost(message, tag = "13")]
         HashFileSha256(super::HashFileSha256),
     }
 }

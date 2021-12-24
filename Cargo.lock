@@ -399,12 +399,10 @@ version = "0.1.0"
 dependencies = [
  "allo-isolate",
  "cbindgen",
- "once_cell",
  "owlchat-crypto",
  "prost",
  "prost-build",
  "prost-types",
- "tempfile",
 ]
 
 [[package]]

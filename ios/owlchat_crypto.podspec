@@ -4,16 +4,19 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'owlchat_crypto'
-  s.version          = '0.0.1'
-  s.summary          = 'A new flutter plugin project.'
+  s.version          = '0.1.0'
+  s.summary          = 'Owlchat Crypto Binding.'
   s.description      = <<-DESC
-A new flutter plugin project.
+  A crypto library for the Owlchat app.
                        DESC
-  s.homepage         = 'http://example.com'
+  s.homepage         = 'https://owl.chat'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'Your Company' => 'email@example.com' }
+  s.author           = { 'Shady Khalifa' => 'shekohex@gmail.com' }
   s.source           = { :path => '.' }
+  s.public_header_files = 'Classes**/*.h'
   s.source_files = 'Classes/**/*'
+  s.static_framework = true
+  s.vendored_libraries = "libkeystore.a"
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
 

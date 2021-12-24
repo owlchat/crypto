@@ -11,4 +11,8 @@ public class SwiftOwlchatCryptoPlugin: NSObject, FlutterPlugin {
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     result("iOS " + UIDevice.current.systemVersion)
   }
+
+  public static func dummyMethodToEnforceBundling() {
+      owlchat_crypto_keypair_new()
+  }
 }
