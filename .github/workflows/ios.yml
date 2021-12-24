@@ -58,12 +58,12 @@ jobs:
       - name: Run Flutter pub get
         run: flutter pub get
 
-      - name: Run cargo make native (Release)
+      - name: Run cargo make native (Debug)
         uses: actions-rs/cargo@v1
         continue-on-error: false
         with:
           command: make
-          args: -p production native
+          args: -p development native
 
       - name: Run Native Tests (in Flutter)
         run: flutter test
