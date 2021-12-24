@@ -1,21 +1,21 @@
 on: [push, pull_request]
 
-name: Nightly lints
+name: Lints
 
 jobs:
-  combo:
+  rust:
     name: Clippy + rustfmt
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install nightly toolchain
+      - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly
-          override: true
+          toolchain: stable
+          override: false
           components: rustfmt, clippy
 
       - name: Run cargo fmt
@@ -29,3 +29,24 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  flutter:
+    name: Flutter Lints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v1
+        with:
+          channel: "stable"
+
+      - name: Install Packages
+        run: flutter pub get
+
+      - name: Flutter Format
+        run: flutter format --set-exit-if-changed .
+
+      - name: Flutter Analyze
+        run: flutter analyze
