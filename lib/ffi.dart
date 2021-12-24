@@ -83,12 +83,214 @@ class RawOwlchatCrypto {
           'owlchat_crypto_keypair_new');
   late final _owlchat_crypto_keypair_new =
       _owlchat_crypto_keypair_newPtr.asFunction<RawKeyPair Function()>();
+
+  /// Stores the function pointer of `Dart_PostCObject`, this only should be
+  /// called once at the start up of the Dart/Flutter Application. it is exported
+  /// and marked as `#[no_mangle]`.
+  ///
+  /// you could use it from Dart as following:
+  ///
+  /// #### Safety
+  /// This function should only be called once at the start up of the Dart
+  /// application.
+  ///
+  /// ### Example
+  /// ```dart,ignore
+  /// import 'dart:ffi';
+  ///
+  /// typedef dartPostCObject = Pointer Function(
+  /// Pointer<NativeFunction<Int8 Function(Int64,
+  /// Pointer<Dart_CObject>)>>);
+  ///
+  /// // assumes that _dl is the `DynamicLibrary`
+  /// final storeDartPostCObject =
+  /// _dl.lookupFunction<dartPostCObject, dartPostCObject>(
+  /// 'store_dart_post_cobject',
+  /// );
+  ///
+  /// // then later call
+  ///
+  /// storeDartPostCObject(NativeApi.postCObject);
+  /// ```
+  void store_dart_post_cobject(
+    DartPostCObjectFnType ptr,
+  ) {
+    return _store_dart_post_cobject(
+      ptr,
+    );
+  }
+
+  late final _store_dart_post_cobjectPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(DartPostCObjectFnType)>>(
+          'store_dart_post_cobject');
+  late final _store_dart_post_cobject = _store_dart_post_cobjectPtr
+      .asFunction<void Function(DartPostCObjectFnType)>();
 }
 
+class DartCObject extends ffi.Struct {
+  @DartCObjectType1()
+  external int ty;
+
+  external DartCObjectValue value;
+}
+
+/// A Dart_CObject is used for representing Dart objects as native C
+/// data outside the Dart heap. These objects are totally detached from
+/// the Dart heap. Only a subset of the Dart objects have a
+/// representation as a Dart_CObject.
+///
+/// The string encoding in the 'value.as_string' is UTF-8.
+///
+/// All the different types from dart:typed_data are exposed as type
+/// kTypedData. The specific type from dart:typed_data is in the type
+/// field of the as_typed_data structure. The length in the
+/// as_typed_data structure is always in bytes.
+///
+/// The data for kTypedData is copied on message send and ownership remains with
+/// the caller. The ownership of data for kExternalTyped is passed to the VM on
+/// message send and returned when the VM invokes the
+/// Dart_WeakPersistentHandleFinalizer callback; a non-NULL callback must be
+/// provided.
+///
+/// https://github.com/dart-lang/sdk/blob/main/runtime/include/dart_native_api.h
+abstract class DartCObjectType {
+  static const int DartCObjectType_DartNull = 0;
+  static const int DartCObjectType_DartBool = 1;
+  static const int DartCObjectType_DartInt32 = 2;
+  static const int DartCObjectType_DartInt64 = 3;
+  static const int DartCObjectType_DartDouble = 4;
+  static const int DartCObjectType_DartString = 5;
+  static const int DartCObjectType_DartArray = 6;
+  static const int DartCObjectType_DartTypedData = 7;
+  static const int DartCObjectType_DartExternalTypedData = 8;
+  static const int DartCObjectType_DartSendPort = 9;
+  static const int DartCObjectType_DartCapability = 10;
+  static const int DartCObjectType_DartUnsupported = 11;
+  static const int DartCObjectType_DartNumberOfTypes = 12;
+}
+
+typedef DartCObjectType1 = ffi.Int32;
+
+class DartCObjectValue extends ffi.Union {
+  @ffi.Uint8()
+  external int as_bool;
+
+  @ffi.Int32()
+  external int as_int32;
+
+  @ffi.Int64()
+  external int as_int64;
+
+  @ffi.Double()
+  external double as_double;
+
+  external ffi.Pointer<ffi.Int8> as_string;
+
+  external DartNativeSendPort as_send_port;
+
+  external DartNativeCapability as_capability;
+
+  external DartNativeArray as_array;
+
+  external DartNativeTypedData as_typed_data;
+
+  external DartNativeExternalTypedData as_external_typed_data;
+
+  @ffi.Array.multi([5])
+  external ffi.Array<ffi.Uint64> _bindgen_union_align;
+}
+
+/// https://github.com/dart-lang/sdk/blob/main/runtime/include/dart_api.h
+typedef DartHandleFinalizer = ffi.Pointer<
+    ffi.NativeFunction<
+        ffi.Void Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Void>)>>;
+
+class DartNativeArray extends ffi.Struct {
+  @ffi.IntPtr()
+  external int length;
+
+  external ffi.Pointer<ffi.Pointer<DartCObject>> values;
+}
+
+class DartNativeCapability extends ffi.Struct {
+  @ffi.Int64()
+  external int id;
+}
+
+class DartNativeExternalTypedData extends ffi.Struct {
+  @DartTypedDataType1()
+  external int ty;
+
+  @ffi.IntPtr()
+  external int length;
+
+  external ffi.Pointer<ffi.Uint8> data;
+
+  external ffi.Pointer<ffi.Void> peer;
+
+  external DartHandleFinalizer callback;
+}
+
+class DartNativeSendPort extends ffi.Struct {
+  @DartPort()
+  external int id;
+
+  @DartPort()
+  external int origin_id;
+}
+
+class DartNativeTypedData extends ffi.Struct {
+  @DartTypedDataType1()
+  external int ty;
+
+  @ffi.IntPtr()
+  external int length;
+
+  external ffi.Pointer<ffi.Uint8> values;
+}
+
+/// A port is used to send or receive inter-isolate messages
+typedef DartPort = ffi.Int64;
+
+/// Posts a message on some port. The message will contain the
+/// Dart_CObject object graph rooted in 'message'.
+///
+/// While the message is being sent the state of the graph of
+/// Dart_CObject structures rooted in 'message' should not be accessed,
+/// as the message generation will make temporary modifications to the
+/// data. When the message has been sent the graph will be fully
+/// restored.
+///
+/// `port_id` The destination port.
+/// `message` The message to send.
+///
+/// return true if the message was posted.
+typedef DartPostCObjectFnType = ffi.Pointer<
+    ffi.NativeFunction<ffi.Uint8 Function(DartPort, ffi.Pointer<DartCObject>)>>;
+
+abstract class DartTypedDataType {
+  static const int DartTypedDataType_ByteData = 0;
+  static const int DartTypedDataType_Int8 = 1;
+  static const int DartTypedDataType_Uint8 = 2;
+  static const int DartTypedDataType_Uint8Clamped = 3;
+  static const int DartTypedDataType_Int16 = 4;
+  static const int DartTypedDataType_Uint16 = 5;
+  static const int DartTypedDataType_Int32 = 6;
+  static const int DartTypedDataType_Uint32 = 7;
+  static const int DartTypedDataType_Int64 = 8;
+  static const int DartTypedDataType_Uint64 = 9;
+  static const int DartTypedDataType_Float32 = 10;
+  static const int DartTypedDataType_Float64 = 11;
+  static const int DartTypedDataType_Float32x4 = 12;
+  static const int DartTypedDataType_Invalid = 13;
+}
+
+typedef DartTypedDataType1 = ffi.Int32;
+
 abstract class OwlchatResult {
-  static const int Ok = 1;
-  static const int NullPointerDetected = 2;
-  static const int InvalidProtobuf = 3;
+  static const int OwlchatResult_Ok = 1;
+  static const int OwlchatResult_NullPointerDetected = 2;
+  static const int OwlchatResult_InvalidProtobuf = 3;
 }
 
 /// A Opaque pointer to a [`cryoto::KeyPair`]

@@ -18,12 +18,17 @@ fn main() {
         documentation_style: cbindgen::DocumentationStyle::C99,
         line_length: 150,
         style: cbindgen::Style::Both,
+        enumeration: cbindgen::EnumConfig {
+            prefix_with_name: true,
+            ..Default::default()
+        },
         no_includes: true,
-        sys_includes: vec![String::from("stdint.h")],
+        sys_includes: vec![String::from("stdint.h"), String::from("stdbool.h")],
         defines: HashMap::from([(String::from("feature = dart-ffi"), String::from("DART"))]),
         parse: cbindgen::ParseConfig {
             parse_deps: true,
-            include: Some(vec![String::from("allo_isolate")]),
+            include: Some(vec![String::from("allo-isolate")]),
+            extra_bindings: vec![String::from("allo-isolate")],
             ..Default::default()
         },
         ..Default::default()

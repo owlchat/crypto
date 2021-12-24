@@ -232,6 +232,8 @@ class OwlchatCrypto {
   /// Dispose everything, clears the current [OwlchatCrypto] instance.
   void dispose() {
     _raw.owlchat_crypto_keypair_drop(_keyPair);
+    // set the current keypair to null, we are done with it
+    _keyPair = nullptr;
   }
 
   Future<Response> _dispatch(Request req) async {
@@ -395,8 +397,12 @@ class Seed extends Key {
 }
 
 void _assertOk(int result) {
-  if (result != ffi.OwlchatResult.Ok) {
+  if (result != ffi.OwlchatResult.OwlchatResult_Ok) {
     throw Exception('Owlchat Crypto Error: $result');
+  } else if (result == ffi.OwlchatResult.OwlchatResult_NullPointerDetected) {
+    throw ArgumentError.notNull('_keyPair');
+  } else if (result == ffi.OwlchatResult.OwlchatResult_InvalidProtobuf) {
+    throw ArgumentError.value('<...>', 'protobuf', 'Invalid Protobuf data');
   }
 }
 
@@ -428,11 +434,12 @@ ffi.RawOwlchatCrypto _load() {
     lib = DynamicLibrary.open('target/libowlchat_crypto.so');
   } else {
     throw UnsupportedError(
-        'Platform ${Platform.operatingSystem} is not supported');
+      'Platform ${Platform.operatingSystem} is not supported',
+    );
   }
   // then hook up the allo-isolate rust crate
   // this is needed to be able to use the rust-ffi
-  AlloIsolate(lib: lib).hook();
+  AlloIsolate(lib).hook();
   // finally create the ffi.RawOwlchatCrypto
   return ffi.RawOwlchatCrypto(lib);
 }
