@@ -16,7 +16,7 @@ fn main() {
     let config = cbindgen::Config {
         language: cbindgen::Language::C,
         documentation_style: cbindgen::DocumentationStyle::C99,
-        line_length: 150,
+        line_length: 80,
         style: cbindgen::Style::Both,
         enumeration: cbindgen::EnumConfig {
             prefix_with_name: true,

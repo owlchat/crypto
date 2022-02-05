@@ -164,7 +164,10 @@ void owlchat_crypto_keypair_drop(RawKeyPair pair);
 // # Safety
 //
 // This function is unsafe because it deals with raw pointers.
-enum OwlchatResult owlchat_crypto_dispatch(RawKeyPair keypair, int64_t port, const uint8_t *data, uintptr_t len);
+enum OwlchatResult owlchat_crypto_dispatch(RawKeyPair keypair,
+                                           int64_t port,
+                                           const uint8_t *data,
+                                           uintptr_t len);
 #endif
 
 #if !defined(DART)
@@ -176,7 +179,9 @@ enum OwlchatResult owlchat_crypto_dispatch(RawKeyPair keypair, int64_t port, con
 //
 // # Safety
 // you should free the returned buffer using [owlchat_crypto_free_buffer] after you are done with it.
-struct Buffer owlchat_crypto_dispatch(RawKeyPair keypair, const uint8_t *data, uintptr_t len);
+const struct Buffer *owlchat_crypto_dispatch(RawKeyPair keypair,
+                                             const uint8_t *data,
+                                             uintptr_t len);
 #endif
 
 #if !defined(DART)
@@ -193,7 +198,7 @@ struct Buffer owlchat_crypto_dispatch(RawKeyPair keypair, const uint8_t *data, u
 // # Safety
 //
 // This function is unsafe because it deals with raw pointers.
-void owlchat_crypto_free_buffer(struct Buffer buffer);
+void owlchat_crypto_free_buffer(struct Buffer *buffer);
 #endif
 
 // Stores the function pointer of `Dart_PostCObject`, this only should be

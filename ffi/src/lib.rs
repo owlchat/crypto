@@ -124,7 +124,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
     keypair: RawKeyPair,
     data: *const u8,
     len: usize,
-) -> Buffer {
+) -> *const Buffer {
     use prost::Message;
     let keypair = keypair!(keypair);
     // check if the pointer is null first
@@ -146,7 +146,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
     let data = boxed_buf.as_mut_ptr();
     let len = boxed_buf.len();
     std::mem::forget(boxed_buf);
-    Buffer { data, len }
+    Box::leak(Box::new(Buffer { data, len }))
 }
 
 /// Free the buffer returned by [owlchat_crypto_dispatch].
@@ -164,7 +164,7 @@ pub unsafe extern "C" fn owlchat_crypto_dispatch(
 /// This function is unsafe because it deals with raw pointers.
 #[cfg(not(feature = "dart-ffi"))]
 #[no_mangle]
-pub unsafe extern "C" fn owlchat_crypto_free_buffer(buffer: Buffer) {
+pub unsafe extern "C" fn owlchat_crypto_free_buffer(buffer: Box<Buffer>) {
     if buffer.data.is_null() {
         return;
     }
