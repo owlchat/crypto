@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.public_header_files = 'Classes**/*.h'
   s.source_files = 'Classes/**/*'
   s.static_framework = true
-  s.vendored_libraries = "libkeystore.a"
+  s.vendored_libraries = "libowlchat_crypto.a"
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
 
